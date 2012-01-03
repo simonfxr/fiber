@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 typedef unsigned char byte;
 typedef uintptr_t uptr;
@@ -15,6 +16,8 @@ static const size_t COOKIE = 0xFEABCAC0;
 #define ASSERT(a) assert(a)
 
 #define UNUSED(a) ((void) (a))
+
+#define STACK_IS_ALIGNED(x) (((x) & (STACK_ALIGNMENT - 1)) == 0)
 
 static void fiber_guard(const void *);
 
@@ -74,10 +77,27 @@ void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
     ASSERT(fbr != 0);
     ASSERT(f != 0);
     ASSERT((fbr->state & FS_EXECUTING) == 0);
-    fiber_asm_push_thunk(&fbr->stack_ptr, f, args, s);
+
+    size_t aligned_size = (s + STACK_ALIGNMENT - 1) & (STACK_ALIGNMENT - 1);
+
+    byte *stack_ptr = (byte *) fbr->stack_ptr;
+    stack_ptr -= s;
+    stack_ptr -= STACK_ALIGNMENT - 1;
+    stack_ptr = (byte *) ((uptr) stack_ptr & (STACK_ALIGNMENT - 1));
+    memcpy(stack_ptr, args, s);
+    
+    stack_ptr -= sizeof (void *);
+    * (void **) stack_ptr = f;
+    
+    stack_ptr -= sizeof (size_t);
+    * (size_t *) stack_ptr = aligned_size;
+    
+    fbr->stack_ptr = stack_ptr;
+    fiber_asm_push_invoker(&fbr->stack_ptr);
 }
 
 void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const void *args, size_t s) {
+    UNUSED(s);
     ASSERT(active != 0);
     ASSERT(temp != 0);
     ASSERT((active->state & FS_EXECUTING) != 0);
@@ -87,7 +107,7 @@ void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const void *args, si
         ASSERT((temp->state & FS_EXECUTING) == 0);
         temp->state |= FS_EXECUTING;
         active->state &= ~ FS_EXECUTING;
-        fiber_asm_exec_on_stack(temp->stack_ptr, f, args, s);
+        fiber_asm_exec_on_stack(temp->stack_ptr, f, args);
         active->state |= FS_EXECUTING;
         temp->state &= ~ FS_EXECUTING;
     }
