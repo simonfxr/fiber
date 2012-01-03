@@ -48,7 +48,7 @@ fiber_asm_push_thunk:           ; void **, void (*)(...), Fiber *, const char *,
         test r8, r8
         jz .done_copy
 .copy:
-        mov byte ptr [rax] [rcx+r9]
+        mov hword [rax], [rcx+r9]
         add r9, 1
         sub rax, 1
         cmp r9, r8

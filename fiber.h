@@ -29,8 +29,6 @@ typedef struct {
     uint16_t offset_to_stack;
 } Fiber;
 
-typedef void (*FiberContextFunc)(const void *);
-
 typedef void (*FiberFunc)(const void *);
 
 Fiber *fiber_init(void *, size_t);

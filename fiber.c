@@ -70,19 +70,19 @@ void fiber_switch(Fiber *from, Fiber *to) {
     fiber_asm_switch(&from->stack_ptr, to->stack_ptr);
 }
 
-void fiber_push_return(Fiber *fbr, FiberFunc f, const char *args, size_t s) {
+void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
     ASSERT(fbr != 0);
     ASSERT(f != 0);
     ASSERT((fbr->state & FS_EXECUTING) == 0);
     fiber_asm_push_thunk(&fbr->stack_ptr, f, args, s);
 }
 
-void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const char *args, size_t s) {
+void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const void *args, size_t s) {
     ASSERT(active != 0);
     ASSERT(temp != 0);
     ASSERT((active->state & FS_EXECUTING) != 0);
     if (active == temp) {
-        f(args, s);
+        f(args);
     } else {
         ASSERT((temp->state & FS_EXECUTING) == 0);
         temp->state |= FS_EXECUTING;
@@ -94,7 +94,6 @@ void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const char *args, si
 }
 
 static void fiber_guard(const void *args) {
-    Fiber *fbr = *(Fiber **) args
     UNUSED(args);
     abort(); // cannot continue
 }

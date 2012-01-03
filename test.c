@@ -1,12 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "fiber.h"
 
+#define STACK_SIZE (1UL << 15)
 
 typedef struct Thread Thread;
 
 typedef struct Sched Sched;
+
+struct Thread {
+    Thread *prev, *next;
+    void *stack;
+    Fiber *fiber;
+};
 
 struct Sched {
     Thread main_thread;
@@ -16,28 +24,22 @@ struct Sched {
     size_t fuel;
 };
 
-struct Thread {
-    Thread *prev, *next;
-    void *stack;
-    Fiber *fiber;
-};
-
 static Sched *sched;
 
 void schedule() {
-    Fiber *active = sched->running.fiber;
+    Fiber *active = sched->running->fiber;
 
     if (sched->fuel == 0) {
         fiber_switch(active, &sched->main_fiber);
     } else {
-        sched->running = sched->running.next;
+        sched->running = sched->running->next;
         --sched->fuel;
-        fiber_switch(active, sched->running.fiber);
+        fiber_switch(active, sched->running->fiber);
     }
 }
 
 void thread_destroy(Thread *t) {
-    free(fiber_stack(t.fiber));
+    free(fiber_stack(t->fiber));
     free(t);
 }
 
@@ -56,7 +58,8 @@ typedef struct {
     void (*entry)(void);
 } ThreadArgs;
 
-void thread_exec(Fiber *fbr, const ThreadArgs *args) {
+void thread_exec(const void *args0) {
+    const ThreadArgs *args = (const ThreadArgs *) args0;
     printf("Thread started: %p\n", sched->running);
     args->entry();
     thread_end();
@@ -70,7 +73,6 @@ void thread_start(void (*func)(void)) {
 
     ThreadArgs args;
     args.entry = func;
-    args.args = args;
     fiber_push_return(t->fiber, thread_exec, &args, sizeof args);
     
     t->next = sched->running->next;
@@ -120,7 +122,7 @@ void thread3() {
     put_str("thread3 exiting");
 }
 
-void main() {
+int main(void) {
 
     Sched s;
     sched_init(&s);
