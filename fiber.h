@@ -37,6 +37,8 @@ void fiber_init_toplevel(Fiber *);
 
 void *fiber_stack(Fiber *);
 
+Fiber *fiber_from_stack(void *, size_t);
+
 int fiber_is_toplevel(Fiber *);
 
 void fiber_switch(Fiber *from, Fiber *to);

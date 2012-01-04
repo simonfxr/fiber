@@ -5,11 +5,16 @@
 #include <assert.h>
 #include <string.h>
 
+#ifndef WORD_SIZE
+#error "WORD_SIZE not defined"
+#endif
+
+#ifndef STACK_ALIGNMENT
+#error "STACK_ALIGNMENT not defined"
+#endif
+
 typedef unsigned char byte;
 typedef uintptr_t uptr;
-
-static const size_t WORD_SIZE = sizeof (void *);
-static const size_t STACK_ALIGNMENT = WORD_SIZE * 2;
 
 static const size_t COOKIE = 0xFEABCAC0;
 
@@ -23,9 +28,11 @@ static const size_t COOKIE = 0xFEABCAC0;
 
 static void fiber_guard(const void *);
 
+static Fiber *fiber_get(void *, size_t);
+
 Fiber *fiber_init(void *stack, size_t sz) {
     byte *top = &((byte *) stack)[sz];
-    Fiber *fbr = (Fiber *) ((uptr) (top - sizeof (Fiber)) & ~(WORD_SIZE - 1));
+    Fiber *fbr = fiber_get(stack, sz);
     if ((void *) fbr < stack)
         return NULL;
 
@@ -55,6 +62,19 @@ void *fiber_stack(Fiber *fbr) {
     ASSERT(fbr != 0);
     CHECK_COOKIE(fbr);
     return (byte *) (fbr + 1) + fbr->offset_to_stack - fbr->size;
+}
+
+static Fiber *fiber_get(void *stack, size_t sz) {
+    byte *top = &((byte *) stack)[sz];
+    Fiber *fbr = (Fiber *) ((uptr) (top - sizeof (Fiber)) & ~(WORD_SIZE - 1));
+    return fbr;
+}
+
+Fiber *fiber_from_stack(void *stack, size_t s) {
+    Fiber *fbr = fiber_get(stack, s);
+    ASSERT(fbr != 0);
+    ASSERT(fbr->size == s);
+    return fbr;
 }
 
 int fiber_is_toplevel(Fiber *fbr) {

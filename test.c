@@ -12,7 +12,6 @@ typedef struct Sched Sched;
 
 struct Thread {
     Thread *prev, *next;
-    void *stack;
     Fiber *fiber;
 };
 
@@ -30,6 +29,10 @@ typedef struct {
 
 static Sched *sched;
 
+static Fiber *thread_fiber(Thread *t) {
+    return t->fiber;
+}
+
 static void thread_switch(Thread *from, Thread *to) {
     assert(sched->running == from);
     
@@ -39,7 +42,7 @@ static void thread_switch(Thread *from, Thread *to) {
         --sched->fuel;
 
     sched->running = to;
-    fiber_switch(from->fiber, to->fiber);
+    fiber_switch(thread_fiber(from), thread_fiber(to));
 }
 
 static void yield() {
@@ -47,7 +50,7 @@ static void yield() {
 }
 
 static void thread_destroy(Thread *t) {
-    free(fiber_stack(t->fiber));
+    free(fiber_stack(thread_fiber(t)));
     free(t);
 }
 
@@ -74,12 +77,14 @@ static void thread_exec(const void *args0) {
 static void thread_start(void (*func)(void)) {
     Thread *t = malloc(sizeof *t);
     void *stack = malloc(STACK_SIZE);
-    t->fiber = fiber_init(stack, STACK_SIZE);
-    assert(stack == fiber_stack(t->fiber));
+    Fiber *fbr = fiber_init(stack, STACK_SIZE);
+    t->fiber = fbr;
+    assert(stack == fiber_stack(thread_fiber(t)));
+    assert(fbr == fiber_from_stack(stack, STACK_SIZE));
 
     ThreadArgs args;
     args.entry = func;
-    fiber_push_return(t->fiber, thread_exec, &args, sizeof args);
+    fiber_push_return(fbr, thread_exec, &args, sizeof args);
     
     t->next = sched->running->next;
     t->prev = sched->running;
@@ -104,7 +109,8 @@ static void run_put_str(const void *arg) {
 }
 
 static void put_str(const char *str) {
-    fiber_exec_on(sched->running->fiber, &sched->main_fiber, run_put_str, &str, sizeof str);
+    fiber_exec_on(thread_fiber(sched->running),
+                  &sched->main_fiber, run_put_str, &str, sizeof str);
 }
 
 static void thread1() {
