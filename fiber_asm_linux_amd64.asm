@@ -3,9 +3,7 @@ global fiber_asm_switch
 global fiber_asm_push_invoker
 global fiber_asm_exec_on_stack
 
-        ;; FIXME: stack has to be 16 byte aligned whenever a external
-        ;; function is called
-
+align 16, nop
 fiber_asm_switch:               ; void **, void * -> void
         push rbx
         push rbp
@@ -18,6 +16,7 @@ fiber_asm_switch:               ; void **, void * -> void
         mov rsp, rsi
         ret
 
+align 16, nop
 .load_regs:
         pop r15
         pop r14
@@ -27,6 +26,7 @@ fiber_asm_switch:               ; void **, void * -> void
         pop rbx
         ret
 
+align 16, nop
 fiber_asm_invoke:
         pop rax
         pop rsi
@@ -37,7 +37,8 @@ fiber_asm_invoke:
         call rsi
         mov rsp, [rsp]
         ret
-        
+
+align 16, nop
 fiber_asm_push_invoker:           ; void ** -> void
         mov rax, [rdi]
         sub rax, 8
@@ -45,6 +46,7 @@ fiber_asm_push_invoker:           ; void ** -> void
         mov [rdi], rax
         ret
 
+align 16, nop
 fiber_asm_exec_on_stack:        ; void *, void (*)(const char *), const char * -> void
         mov rax, rsp
         lea rsp, [rdi - 16]
