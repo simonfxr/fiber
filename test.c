@@ -4,7 +4,7 @@
 
 #include "fiber.h"
 
-#define STACK_SIZE (1UL << 15)
+#define STACK_SIZE 512ul
 
 typedef struct Thread Thread;
 
@@ -24,9 +24,13 @@ struct Sched {
     size_t fuel;
 };
 
+typedef struct {
+    void (*entry)(void);
+} ThreadArgs;
+
 static Sched *sched;
 
-void thread_switch(Thread *from, Thread *to) {
+static void thread_switch(Thread *from, Thread *to) {
     assert(sched->running == from);
     
     if (sched->fuel == 0)
@@ -38,16 +42,16 @@ void thread_switch(Thread *from, Thread *to) {
     fiber_switch(from->fiber, to->fiber);
 }
 
-void schedule() {
+static void yield() {
     thread_switch(sched->running, sched->running->next);
 }
 
-void thread_destroy(Thread *t) {
+static void thread_destroy(Thread *t) {
     free(fiber_stack(t->fiber));
     free(t);
 }
 
-void thread_end() {
+static void thread_end() {
     Thread *t = sched->running;
     Thread *next = t->next;
     
@@ -61,18 +65,13 @@ void thread_end() {
     thread_switch(t, next);
 }
 
-typedef struct {
-    void (*entry)(void);
-} ThreadArgs;
-
-void thread_exec(const void *args0) {
+static void thread_exec(const void *args0) {
     const ThreadArgs *args = (const ThreadArgs *) args0;
-    printf("Thread started: %p\n", sched->running);
     args->entry();
     thread_end();
 }
 
-void thread_start(void (*func)(void)) {
+static void thread_start(void (*func)(void)) {
     Thread *t = malloc(sizeof *t);
     void *stack = malloc(STACK_SIZE);
     t->fiber = fiber_init(stack, STACK_SIZE);
@@ -88,7 +87,7 @@ void thread_start(void (*func)(void)) {
     t->prev->next = t;
 }
 
-void sched_init(Sched *s) {
+static void sched_init(Sched *s) {
     sched = s;
     s->main_thread.prev = &s->main_thread;
     s->main_thread.next = &s->main_thread;
@@ -99,31 +98,34 @@ void sched_init(Sched *s) {
     s->done = 0;
 }
 
-void put_str(const char *str) {
+static void run_put_str(const void *arg) {
+    const char *str = * (const char **) arg;
     puts(str);
 }
 
-void thread1() {
+static void put_str(const char *str) {
+    fiber_exec_on(sched->running->fiber, &sched->main_fiber, run_put_str, &str, sizeof str);
+}
+
+static void thread1() {
     for (;;) {
         put_str("thread1 running");
-        
-        schedule();
+        yield();
     }
 }
 
-void thread2() {
+static void thread2() {
     for (;;) {
         put_str("thread2 running");
-        
-        schedule();
+        yield();
     }
 }
 
-void thread3() {
+static void thread3() {
     int rounds = 10;
     while (rounds --> 0) {
         put_str("thread3 running");
-        schedule();
+        yield();
     }
     
     put_str("thread3 exiting");
@@ -140,7 +142,7 @@ int main(void) {
     thread_start(thread3);
 
     while (sched->running->next != &sched->main_thread && sched->fuel > 0) {
-        schedule();
+        yield();
 
         if (sched->fuel == 0 && sched->running->prev != &sched->main_thread) {
             sched->running->prev->next = sched->done;

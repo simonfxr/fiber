@@ -9,10 +9,11 @@ ASM := $(COMP_ASM)
 
 #DEBUG_CLFAGS := 
 DEBUG_CFLAGS ?= -ggdb -fstack-protector
+DEBUG_ASMFLAGS ?= -g dwarf2 
 
 CFLAGS := -Wall -Wextra -std=c99 $(DEBUG_CFLAGS) $(EXTRA_CFLAGS)
 LDFLAGS := $(EXTRA_LDFLAGS)
-ASMFLAGS := -f elf64 -g dwarf2 $(EXTRA_ASMFLAGS)
+ASMFLAGS := -f elf64 $(DEBUG_ASMFLAGS) $(EXTRA_ASMFLAGS)
 
 all: test
 

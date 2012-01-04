@@ -19,6 +19,8 @@ static const size_t COOKIE = 0xFEABCAC0;
 
 #define STACK_IS_ALIGNED(x) (((x) & (STACK_ALIGNMENT - 1)) == 0)
 
+#define CHECK_COOKIE(fbr) ASSERT((fbr)->cookie == COOKIE)
+
 static void fiber_guard(const void *);
 
 Fiber *fiber_init(void *stack, size_t sz) {
@@ -51,17 +53,22 @@ void fiber_init_toplevel(Fiber *fbr) {
 
 void *fiber_stack(Fiber *fbr) {
     ASSERT(fbr != 0);
+    CHECK_COOKIE(fbr);
     return (byte *) (fbr + 1) + fbr->offset_to_stack - fbr->size;
 }
 
 int fiber_is_toplevel(Fiber *fbr) {
     ASSERT(fbr != 0);
+    CHECK_COOKIE(fbr);
     return (fbr->state & FS_TOPLEVEL) != 0;
 }
 
 void fiber_switch(Fiber *from, Fiber *to) {
     ASSERT(from != 0);
+    CHECK_COOKIE(from);
     ASSERT(to != 0);
+    CHECK_COOKIE(to);
+    
     if (from == to)
         return;
 
@@ -75,6 +82,7 @@ void fiber_switch(Fiber *from, Fiber *to) {
 
 void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
     ASSERT(fbr != 0);
+    CHECK_COOKIE(fbr);
     ASSERT(f != 0);
     ASSERT((fbr->state & FS_EXECUTING) == 0);
     ASSERT(s > 0 || args != 0);
@@ -97,9 +105,14 @@ void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
 
 void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const void *args, size_t s) {
     UNUSED(s);
+
     ASSERT(active != 0);
+    CHECK_COOKIE(active);
     ASSERT(temp != 0);
+    CHECK_COOKIE(temp);
+    
     ASSERT((active->state & FS_EXECUTING) != 0);
+    
     if (active == temp) {
         f(args);
     } else {
