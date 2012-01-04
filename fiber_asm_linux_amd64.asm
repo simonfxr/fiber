@@ -11,13 +11,13 @@ fiber_asm_switch:               ; void **, void * -> void
         push r13
         push r14
         push r15
-        push .load_regs
+        push fiber_asm_load_regs
         mov [rdi], rsp
         mov rsp, rsi
         ret
 
 align 16, nop
-.load_regs:
+fiber_asm_load_regs:
         pop r15
         pop r14
         pop r13
@@ -28,8 +28,8 @@ align 16, nop
 
 align 16, nop
 fiber_asm_invoke:
-        pop rax
         pop rsi
+        pop rax
         mov rdi, rsp
         sub rsp, 16
         add rax, rdi

@@ -40,7 +40,7 @@ Fiber *fiber_init(void *stack, size_t sz) {
     fbr->state = 0;
     fbr->size = sz;
     fbr->offset_to_stack = top - (byte *) (fbr + 1);
-    fbr->stack_ptr = (void *) (((uptr) fbr - STACK_ALIGNMENT - 1) & ~(STACK_ALIGNMENT - 1));
+    fbr->stack_ptr = (void *) (((uptr) fbr - WORD_SIZE) & ~(STACK_ALIGNMENT - 1));
 
     if (fbr->stack_ptr < stack)
         return NULL;
@@ -112,12 +112,12 @@ void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
     byte *stack_ptr = (byte *) fbr->stack_ptr;
     stack_ptr -= aligned_size;
     memcpy(stack_ptr, args, s);
+
+    stack_ptr -= sizeof (size_t);
+    * (size_t *) stack_ptr = aligned_size;
     
     stack_ptr -= sizeof (void *);
     * (void **) stack_ptr = f;
-    
-    stack_ptr -= sizeof (size_t);
-    * (size_t *) stack_ptr = aligned_size;
     
     fbr->stack_ptr = stack_ptr;
     fiber_asm_push_invoker(&fbr->stack_ptr);
