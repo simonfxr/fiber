@@ -13,20 +13,20 @@ DEBUG_ASMFLAGS :=
 DEBUG_CFLAGS ?= -ggdb -fstack-protector
 DEBUG_ASMFLAGS ?= -g dwarf2 
 
-OPT_CFLAGS := -O3 -march=native
+OPT_CFLAGS := -m32 -O4 -march=native
 
-CFLAGS := -Wall -Wextra -std=c99 -DWORD_SIZE=8 -DSTACK_ALIGNMENT=16 \
+CFLAGS := -Wall -Wextra -std=c99 -DWORD_SIZE=4 -DSTACK_ALIGNMENT=16 \
 	$(OPT_CFLAGS) \
 	$(DEBUG_CFLAGS) $(EXTRA_CFLAGS)
 
 LDFLAGS := $(OPT_CFLAGS) $(EXTRA_LDFLAGS)
-ASMFLAGS := -f elf64 $(DEBUG_ASMFLAGS) $(EXTRA_ASMFLAGS)
+ASMFLAGS := -f elf32 $(DEBUG_ASMFLAGS) $(EXTRA_ASMFLAGS)
 
 all: test
 
 test: test.o fiber.o fiber_asm.o
 
-fiber_asm.o: fiber_asm_linux_amd64.asm
+fiber_asm.o: fiber_asm_linux_686.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 
 %.o: %.asm
