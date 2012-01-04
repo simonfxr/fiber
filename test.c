@@ -26,16 +26,20 @@ struct Sched {
 
 static Sched *sched;
 
-void schedule() {
-    Fiber *active = sched->running->fiber;
-
-    if (sched->fuel == 0) {
-        fiber_switch(active, &sched->main_fiber);
-    } else {
-        sched->running = sched->running->next;
+void thread_switch(Thread *from, Thread *to) {
+    assert(sched->running == from);
+    
+    if (sched->fuel == 0)
+        to = &sched->main_thread;
+    else
         --sched->fuel;
-        fiber_switch(active, sched->running->fiber);
-    }
+
+    sched->running = to;
+    fiber_switch(from->fiber, to->fiber);
+}
+
+void schedule() {
+    thread_switch(sched->running, sched->running->next);
 }
 
 void thread_destroy(Thread *t) {
@@ -45,13 +49,16 @@ void thread_destroy(Thread *t) {
 
 void thread_end() {
     Thread *t = sched->running;
+    Thread *next = t->next;
+    
     t->prev->next = t->next;
     t->next->prev = t->prev;
     
     t->next = sched->done;
     t->prev = 0;
     sched->done = t;
-    schedule();
+
+    thread_switch(t, next);
 }
 
 typedef struct {
@@ -134,6 +141,13 @@ int main(void) {
 
     while (sched->running->next != &sched->main_thread && sched->fuel > 0) {
         schedule();
+
+        if (sched->fuel == 0 && sched->running->prev != &sched->main_thread) {
+            sched->running->prev->next = sched->done;
+            sched->done = sched->running->next;
+            sched->running->next = sched->running;
+            sched->running->prev = sched->running;
+        }
         
         while (sched->done != 0) {
             Thread *t = sched->done;

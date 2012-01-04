@@ -77,13 +77,12 @@ void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
     ASSERT(fbr != 0);
     ASSERT(f != 0);
     ASSERT((fbr->state & FS_EXECUTING) == 0);
+    ASSERT(s > 0 || args != 0);
 
     size_t aligned_size = (s + STACK_ALIGNMENT - 1) & ~(STACK_ALIGNMENT - 1);
 
     byte *stack_ptr = (byte *) fbr->stack_ptr;
-    stack_ptr -= s;
-    stack_ptr -= STACK_ALIGNMENT - 1;
-    stack_ptr = (byte *) ((uptr) stack_ptr & ~(STACK_ALIGNMENT - 1));
+    stack_ptr -= aligned_size;
     memcpy(stack_ptr, args, s);
     
     stack_ptr -= sizeof (void *);

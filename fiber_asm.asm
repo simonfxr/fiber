@@ -40,8 +40,8 @@ fiber_asm_invoke:
         
 fiber_asm_push_invoker:           ; void ** -> void
         mov rax, [rdi]
+        sub rax, 8
         mov qword [rax], fiber_asm_invoke
-        add rax, 8
         mov [rdi], rax
         ret
 
