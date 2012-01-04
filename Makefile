@@ -7,9 +7,10 @@ CC := $(COMP_C)
 CXX := $(COMP_CXX)
 ASM := $(COMP_ASM)
 
-DEBUG_CFLAGS = -ggdb -fstack-protector
+#DEBUG_CLFAGS := 
+DEBUG_CFLAGS ?= -ggdb -fstack-protector
 
-CFLAGS := -Wall -Wextra -std=c99 $(EXTRA_CFLAGS)
+CFLAGS := -Wall -Wextra -std=c99 $(DEBUG_CFLAGS) $(EXTRA_CFLAGS)
 LDFLAGS := $(EXTRA_LDFLAGS)
 ASMFLAGS := -f elf64 -g dwarf2 $(EXTRA_ASMFLAGS)
 
@@ -19,3 +20,8 @@ test: test.o fiber.o fiber_asm.o
 
 %.o: %.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
+
+clean:
+	- rm test *.o
+
+.PHONY: clean
