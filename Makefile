@@ -7,26 +7,28 @@ CC := $(COMP_C)
 CXX := $(COMP_CXX)
 ASM := $(COMP_ASM)
 
-DEBUG_CFLAGS := 
-DEBUG_ASMFLAGS :=
+# DEBUG_CFLAGS := 
+# DEBUG_ASMFLAGS :=
 
 DEBUG_CFLAGS ?= -ggdb -fstack-protector
 DEBUG_ASMFLAGS ?= -g dwarf2 
 
-OPT_CFLAGS := -m32 -O4 -march=native
+OPT_CFLAGS := -O0 -march=native
 
-CFLAGS := -Wall -Wextra -std=c99 -DWORD_SIZE=4 -DSTACK_ALIGNMENT=16 \
+CFLAGS := -Wall -Wextra -std=c99 -DWORD_SIZE=8 -DSTACK_ALIGNMENT=16 \
 	$(OPT_CFLAGS) \
 	$(DEBUG_CFLAGS) $(EXTRA_CFLAGS)
 
 LDFLAGS := $(OPT_CFLAGS) $(EXTRA_LDFLAGS)
-ASMFLAGS := -f elf32 $(DEBUG_ASMFLAGS) $(EXTRA_ASMFLAGS)
+ASMFLAGS := -f elf64 $(DEBUG_ASMFLAGS) $(EXTRA_ASMFLAGS)
 
 all: test
 
 test: test.o fiber.o fiber_asm.o
 
-fiber_asm.o: fiber_asm_linux_686.asm
+test2: test2.o fiber.o fiber_asm.o
+
+fiber_asm.o: fiber_asm_linux_amd64.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 
 %.o: %.asm
