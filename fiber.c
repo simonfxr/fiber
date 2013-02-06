@@ -101,6 +101,12 @@ void fiber_switch(Fiber *from, Fiber *to) {
 }
 
 void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
+    void *args_dest;
+    fiber_reserve_return(fbr, f, &args_dest, s);
+    memcpy(args_dest, args, s);
+}
+
+void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s) {
     ASSERT(fbr != 0);
     CHECK_COOKIE(fbr);
     ASSERT(f != 0);
@@ -111,7 +117,7 @@ void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
 
     byte *stack_ptr = (byte *) fbr->stack_ptr;
     stack_ptr -= aligned_size;
-    memcpy(stack_ptr, args, s);
+    *args = (void *) stack_ptr;
 
     stack_ptr -= sizeof (size_t);
     * (size_t *) stack_ptr = aligned_size;
@@ -122,6 +128,7 @@ void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
     fbr->stack_ptr = stack_ptr;
     fiber_asm_push_invoker(&fbr->stack_ptr);
 }
+
 
 void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const void *args, size_t s) {
     UNUSED(s);

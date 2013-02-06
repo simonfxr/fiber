@@ -45,6 +45,8 @@ void fiber_switch(Fiber *from, Fiber *to);
 
 void fiber_push_return(Fiber *, FiberFunc, const void *, size_t);
 
+void fiber_reserve_return(Fiber *, FiberFunc, void **, size_t);
+
 void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc, const void *, size_t);
 
 #endif

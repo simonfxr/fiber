@@ -14,6 +14,8 @@ typedef void (*GeneratorF)(const GeneratorArgs *);
 
 typedef unsigned char byte;
 
+#define STACK_SIZE 65536
+
 typedef enum {
     GenActive,
     GenDrained,
@@ -51,15 +53,13 @@ Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, const 
     gen->ret = 0;
     gen->caller = 0;
 
+    GeneratorArgs *args;
     const size_t size = offsetof(GeneratorArgs, state[state_size]);
-    const size_t asize = (size + (STACK_ALIGNMENT - 1)) & ~(STACK_ALIGNMENT - 1);
-    byte data[asize];
-    GeneratorArgs *args = (GeneratorArgs *) ((((uintptr_t) data) + (STACK_ALIGNMENT - 1)) & ~(STACK_ALIGNMENT - 1));
-    
+    fiber_reserve_return(gen->fiber, gen_invoke, (void **) &args, size);
+
     args->gen = gen;
     args->next = next;
     memcpy(args + offsetof(GeneratorArgs, state[0]), state, state_size);
-    fiber_push_return(gen->fiber, gen_invoke, args, size);
     return gen;
 }
 
@@ -127,8 +127,11 @@ typedef struct {
     Generator *gen;
 } TakeState;
 
+#define DEBUG_PRINT(s) fprintf(stderr, s "\n"); fflush(stderr)
+
 void take_gen(const GeneratorArgs *gen) {
     TakeState *state = (TakeState *) gen->state;
+    fprintf(stderr, "take_gen, gen: %p, state: %p\n", gen, state);
     while (state->n --> 0) {
         void *value;
         if (!gen_next(gen->gen->fiber, state->gen, &value))
@@ -144,17 +147,21 @@ Generator *take(int n, Generator *gen) {
     TakeState st;
     st.n = n;
     st.gen = gen;
-    return gen_new(4096, take_gen, sizeof st, &st);
+    return gen_new(STACK_SIZE, take_gen, sizeof st, &st);
 }
 
 int main(void) {
-    Fiber main;
-    fiber_init_toplevel(&main);
-    Generator *fibs = take(20, gen_new(4096, fibs_gen, 0, NULL));
+    Fiber main_fbr;
+    fiber_init_toplevel(&main_fbr);
+    DEBUG_PRINT("fiber_init");
+    Generator *allFibs = gen_new(STACK_SIZE, fibs_gen, 0, NULL);
+    fprintf(stderr, "allFibs initialized\n");
+    Generator *fibs = take(20, allFibs);
+    fprintf(stderr, "fibs initialized\n");
     int *value;
-    while (gen_next(&main, fibs, (void **) &value))
+    while (gen_next(&main_fbr, fibs, (void **) &value))
         printf("value: %d\n", *value);
 
-    gen_destroy(&main, fibs);
+    gen_destroy(&main_fbr, fibs);
     return 0;
 }

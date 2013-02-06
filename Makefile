@@ -1,6 +1,6 @@
 
-COMP_C ?= clang
-COMP_CXX ?= clang++
+COMP_C ?= gcc
+COMP_CXX ?= g++
 COMP_ASM ?= yasm
 
 CC := $(COMP_C)
@@ -22,7 +22,7 @@ CFLAGS := -Wall -Wextra -std=c99 -DWORD_SIZE=8 -DSTACK_ALIGNMENT=16 \
 LDFLAGS := $(OPT_CFLAGS) $(EXTRA_LDFLAGS)
 ASMFLAGS := -f elf64 $(DEBUG_ASMFLAGS) $(EXTRA_ASMFLAGS)
 
-all: test
+all: test test2
 
 test: test.o fiber.o fiber_asm.o
 
@@ -35,6 +35,6 @@ fiber_asm.o: fiber_asm_linux_amd64.asm
 	$(ASM) $(ASMFLAGS) -o $@ $<
 
 clean:
-	- rm test *.o
+	- rm test test2 *.o
 
 .PHONY: clean
