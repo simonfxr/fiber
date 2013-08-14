@@ -5,26 +5,31 @@
 
 #include "fiber.h"
 
-
 typedef struct Generator Generator;
-
 typedef struct GeneratorArgs GeneratorArgs;
-
-typedef void (*GeneratorF)(const GeneratorArgs *);
-
+typedef void (*GeneratorF)(GeneratorArgs *);
 typedef unsigned char byte;
+typedef union Value Value;
 
-#define STACK_SIZE (65536)
+#define STACK_SIZE 4096ul
 
 typedef enum {
     GenActive,
     GenDrained,
 } GenState;
 
+union Value {
+    long integer;
+    unsigned long uinteger;
+    double dpfp;
+    void *ptr;
+};
+
 struct Generator {
     Fiber *fiber;
     GenState state;
-    void *ret;
+    Value ret;
+    int closing;
     Fiber *caller;
 };
 
@@ -36,7 +41,7 @@ struct GeneratorArgs {
 
 void gen_invoke(void *args);
 
-Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, const void *state) {
+Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, void *state) {
     Generator *gen = malloc(sizeof *gen);
     if (gen == 0)
         return 0;
@@ -44,7 +49,7 @@ Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, const 
     fiber_alloc(&gen->fiber, stack_size);
 
     gen->state = GenActive;
-    gen->ret = 0;
+    gen->ret.ptr = 0;
     gen->caller = 0;
 
     GeneratorArgs *args;
@@ -57,45 +62,56 @@ Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, const 
     return gen;
 }
 
-int gen_yield(Generator *gen, void *value) {
+int gen_yield(Generator *gen, Value *value) {
     gen->state = GenActive;
-    gen->ret = value;
+    gen->ret = *value;
     fiber_switch(gen->fiber, gen->caller);
-    return gen->ret == 0;
+    *value = gen->ret;
+    gen->ret.ptr = 0;
+    return !gen->closing;
 }
 
 void gen_finish(Generator *gen) {
     gen->state = GenDrained;
     fiber_switch(gen->fiber, gen->caller);
-    abort();
 }
 
 void gen_invoke(void *args0) {
-    const GeneratorArgs *args = (const GeneratorArgs *) args0;
+    GeneratorArgs *args = (GeneratorArgs *) args0;
     args->next(args);
     gen_finish(args->gen);
 }
 
-int gen_next(Fiber *caller, Generator *gen, void **val) {
-    if (gen->state == GenActive) {
+int gen_next(Fiber *caller, Generator *gen, Value *value) {
+
+    switch (gen->state) {
+    case GenActive:
         gen->caller = caller;
         fiber_switch(caller, gen->fiber);
-    }
 
-    if (gen->state == GenDrained)
+        switch (gen->state) {
+        case GenActive:
+            *value = gen->ret;
+            return 1;
+        case GenDrained:
+            return 0;
+        default:
+            abort();
+        }
+        
+    case GenDrained:
         return 0;
 
-    *val = gen->ret;
-    gen->ret = 0;
-    return 1;
+    default:
+        abort();
+    }
 }
 
 void gen_close(Fiber *caller, Generator *gen) {
-    if (gen->state == GenActive) {
-        gen->caller = caller;
-        gen->ret = (void *) (intptr_t) -1;
-        fiber_switch(caller, gen->fiber);
-    }
+    gen->closing = 1;
+    Value value;
+    value.ptr = 0;
+    gen_next(caller, gen, &value);
 }
 
 void gen_destroy(Fiber *caller, Generator *gen) {
@@ -104,12 +120,16 @@ void gen_destroy(Fiber *caller, Generator *gen) {
     free(gen);
 }
 
-void fibs_gen(const GeneratorArgs *gen) {
-    int f0 = 0;
-    int f1 = 1;
-    gen_yield(gen->gen, &f0);
+void fibs_gen(GeneratorArgs *gen) {
+    int f0, f1;
+    f0 = 0;
+    f1 = 1;
+    Value val;
+    val.integer = f0;
+    gen_yield(gen->gen, &val);
     for (;;) {
-        if (!gen_yield(gen->gen, &f1))
+        val.integer = f1;
+        if (!gen_yield(gen->gen, &val))
             break;
         int t = f0;
         f0 = f1;
@@ -122,20 +142,19 @@ typedef struct {
     Generator *gen;
 } TakeState;
 
-#define DEBUG_PRINT(s) fprintf(stderr, s "\n"); fflush(stderr)
+void take_gen(GeneratorArgs *gen_args) {
+    TakeState *state = (TakeState *) gen_args->state;
 
-void take_gen(const GeneratorArgs *gen) {
-    TakeState *state = (TakeState *) gen->state;
-    fprintf(stderr, "take_gen, gen: %p, state: %p\n", gen, state);
     while (state->n --> 0) {
-        void *value;
-        if (!gen_next(gen->gen->fiber, state->gen, &value))
+        Value value;
+        value.ptr = 0;
+        if (!gen_next(gen_args->gen->fiber, state->gen, &value))
             break;
-        if (!gen_yield(gen->gen, value))
+        if (!gen_yield(gen_args->gen, &value))
             break;
     }
 
-    gen_destroy(gen->gen->fiber, state->gen);
+    gen_destroy(gen_args->gen->fiber, state->gen);
 }
 
 Generator *take(int n, Generator *gen) {
@@ -148,15 +167,15 @@ Generator *take(int n, Generator *gen) {
 int main(void) {
     Fiber main_fbr;
     fiber_init_toplevel(&main_fbr);
-    DEBUG_PRINT("fiber_init");
-    Generator *allFibs = gen_new(STACK_SIZE, fibs_gen, 0, NULL);
-    fprintf(stderr, "allFibs initialized\n");
-    Generator *fibs = take(20, allFibs);
-    fprintf(stderr, "fibs initialized\n");
-    int *value;
-    while (gen_next(&main_fbr, fibs, (void **) &value))
-        printf("value: %d\n", *value);
 
+    Generator *allFibs = gen_new(STACK_SIZE, fibs_gen, 0, NULL);
+    Generator *fibs = take(20, allFibs);
+
+    Value value;
+    value.ptr = 0;
+    while (gen_next(&main_fbr, fibs, &value))
+        printf("value: %d\n", (int) value.integer);
+    fprintf(stderr, "generator empty\n");
     gen_destroy(&main_fbr, fibs);
     return 0;
 }

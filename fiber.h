@@ -54,15 +54,15 @@ void fiber_reserve_return(Fiber *fiber, FiberFunc f, void **args_dest, size_t ar
 
 void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t args_size);
 
-inline int fiber_is_toplevel(Fiber *fiber) {
+static inline int fiber_is_toplevel(Fiber *fiber) {
     return (fiber->state & FS_TOPLEVEL) != 0;
 }
 
-inline int fiber_is_executing(Fiber *fiber) {
+static inline int fiber_is_executing(Fiber *fiber) {
     return (fiber->state & FS_EXECUTING) != 0;
 }
 
-inline int fiber_is_alive(Fiber *fiber) {
+static inline int fiber_is_alive(Fiber *fiber) {
     return (fiber->state & FS_ALIVE) != 0;
 }
 

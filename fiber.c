@@ -8,6 +8,8 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include <stdio.h>
+
 #ifdef FIBER_BITS32
 #  define WORD_SIZE ((size_t) 4)
 #  define STACK_ALIGNMENT ((uptr) 4)
@@ -75,7 +77,10 @@ void fiber_alloc(Fiber **fbrp, size_t size) {
 }
 
 void fiber_free(Fiber *fbr) {
-    munmap(fbr->stack, fbr->stack_size + 2 * 4096);
+    ASSERT(!fiber_is_executing(fbr));
+    size_t size = fbr->stack_size + 2 * 4096;
+    void *stack = (char *) fbr->stack - 4096;
+    munmap(stack, size);
     free(fbr);
 }
 
