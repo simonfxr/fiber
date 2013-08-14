@@ -50,7 +50,7 @@ static void yield() {
 }
 
 static void thread_destroy(Thread *t) {
-    free(fiber_stack(thread_fiber(t)));
+    fiber_free(thread_fiber(t));
     free(t);
 }
 
@@ -68,19 +68,17 @@ static void thread_end() {
     thread_switch(t, next);
 }
 
-static void thread_exec(const void *args0) {
-    const ThreadArgs *args = (const ThreadArgs *) args0;
+static void thread_exec(void *args0) {
+    ThreadArgs *args = (ThreadArgs *) args0;
     args->entry();
     thread_end();
 }
 
 static void thread_start(void (*func)(void)) {
     Thread *t = malloc(sizeof *t);
-    void *stack = malloc(STACK_SIZE);
-    Fiber *fbr = fiber_init(stack, STACK_SIZE);
+    Fiber *fbr;
+    fiber_alloc(&fbr, STACK_SIZE);
     t->fiber = fbr;
-    assert(stack == fiber_stack(thread_fiber(t)));
-    assert(fbr == fiber_from_stack(stack, STACK_SIZE));
 
     ThreadArgs args;
     args.entry = func;
@@ -103,7 +101,7 @@ static void sched_init(Sched *s) {
     s->done = 0;
 }
 
-static void run_put_str(const void *arg) {
+static void run_put_str(void *arg) {
     const char *str = * (const char **) arg;
     puts(str);
 }

@@ -1,103 +1,97 @@
+#define _GNU_SOURCE 1
+
 #include "fiber.h"
 #include "fiber_asm.h"
 
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <sys/mman.h>
 
-#ifndef WORD_SIZE
-#error "WORD_SIZE not defined"
-#endif
-
-#ifndef STACK_ALIGNMENT
-#error "STACK_ALIGNMENT not defined"
+#ifdef FIBER_BITS32
+#  define WORD_SIZE ((size_t) 4)
+#  define STACK_ALIGNMENT ((uptr) 4)
+#else
+#  define WORD_SIZE ((size_t) 8)
+#  define STACK_ALIGNMENT ((uptr) 16)
 #endif
 
 typedef unsigned char byte;
 typedef uintptr_t uptr;
 
-static const size_t COOKIE = 0xFEABCAC0;
-
 #define ASSERT(a) assert(a)
 
 #define UNUSED(a) ((void) (a))
 
-#define STACK_IS_ALIGNED(x) (((x) & (STACK_ALIGNMENT - 1)) == 0)
+#define IS_STACK_ALIGNED(x) (((uintptr_t) (x) & (STACK_ALIGNMENT - 1)) == 0)
 
-#define CHECK_COOKIE(fbr) ASSERT((fbr)->cookie == COOKIE)
+static void fiber_guard(void *);
 
-static void fiber_guard(const void *);
+Fiber *fiber_init(Fiber *fbr, void *stack, size_t stack_size) {
+    fbr->stack = stack;
+    fbr->stack_size = stack_size;
 
-static Fiber *fiber_get(void *, size_t);
-
-Fiber *fiber_init(void *stack, size_t sz) {
-    byte *top = &((byte *) stack)[sz];
-    Fiber *fbr = fiber_get(stack, sz);
-    if ((void *) fbr < stack)
-        return NULL;
-
-    fbr->cookie = COOKIE;
-    fbr->state = 0;
-    fbr->size = sz;
-    fbr->offset_to_stack = top - (byte *) (fbr + 1);
-    fbr->stack_ptr = (void *) (((uptr) fbr - WORD_SIZE) & ~(STACK_ALIGNMENT - 1));
-
-    if (fbr->stack_ptr < stack)
-        return NULL;
-
-    fiber_push_return(fbr, fiber_guard, &fbr, sizeof fbr);
-    
+    memset(&fbr->regs, 0, sizeof fbr->regs);
+    uptr sp = (uptr) ((char *) stack + stack_size - WORD_SIZE);
+    sp &= ~ (STACK_ALIGNMENT - 1);
+    fbr->regs.sp = (void *) sp;
+    void **fbr_dest;
+    fiber_reserve_return(fbr, fiber_guard, (void **) &fbr_dest, sizeof fbr);
+    *fbr_dest = fbr; 
+    fbr->state = FS_ALIVE;
     return fbr;
 }
 
 void fiber_init_toplevel(Fiber *fbr) {
-    fbr->cookie = COOKIE;
-    fbr->state = FS_TOPLEVEL | FS_EXECUTING;
-    fbr->size = sizeof (Fiber);
-    fbr->offset_to_stack = 0;
-    fbr->stack_ptr = 0;
+    fbr->stack = 0;
+    fbr->stack_size = 0;
+    memset(&fbr->regs, 0, sizeof fbr->regs);
+    fbr->state = FS_ALIVE | FS_TOPLEVEL | FS_EXECUTING;
 }
 
-void *fiber_stack(Fiber *fbr) {
-    ASSERT(fbr != 0);
-    CHECK_COOKIE(fbr);
-    return (byte *) (fbr + 1) + fbr->offset_to_stack - fbr->size;
+void fiber_alloc(Fiber **fbrp, size_t size) {
+    const size_t page_size = 4096;
+    size_t npages = (size + page_size - 1) / page_size;
+    npages += 2; // guard pages ;
+    char *stack = (char *) mmap(0, npages * page_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    if (stack == (char *) (intptr_t) - 1) {
+        *fbrp = 0;
+        return;
+    }
+
+    if (mprotect(stack, page_size, PROT_NONE) == -1) {
+        *fbrp = 0;
+        return;
+    }
+
+    if (mprotect(stack + (npages - 1) * page_size, page_size, PROT_NONE) == -1) {
+        *fbrp = 0;
+        return;
+    }
+
+    Fiber *fbr = malloc(sizeof *fbr);
+    fiber_init(fbr, stack + page_size, (npages - 2) * page_size);
+    *fbrp = fbr;
 }
 
-static Fiber *fiber_get(void *stack, size_t sz) {
-    byte *top = &((byte *) stack)[sz];
-    Fiber *fbr = (Fiber *) ((uptr) (top - sizeof (Fiber)) & ~(WORD_SIZE - 1));
-    return fbr;
-}
-
-Fiber *fiber_from_stack(void *stack, size_t s) {
-    Fiber *fbr = fiber_get(stack, s);
-    ASSERT(fbr != 0);
-    ASSERT(fbr->size == s);
-    return fbr;
-}
-
-int fiber_is_toplevel(Fiber *fbr) {
-    ASSERT(fbr != 0);
-    CHECK_COOKIE(fbr);
-    return (fbr->state & FS_TOPLEVEL) != 0;
+void fiber_free(Fiber *fbr) {
+    munmap(fbr->stack, fbr->stack_size + 2 * 4096);
+    free(fbr);
 }
 
 void fiber_switch(Fiber *from, Fiber *to) {
     ASSERT(from != 0);
-    CHECK_COOKIE(from);
     ASSERT(to != 0);
-    CHECK_COOKIE(to);
     
     if (from == to)
         return;
 
-    ASSERT((from->state & FS_EXECUTING) != 0);
-    ASSERT((to->state & FS_EXECUTING) == 0);
+    ASSERT(fiber_is_executing(from));
+    ASSERT(!fiber_is_executing(to));
+    ASSERT(fiber_is_alive(to));
     from->state &= ~ FS_EXECUTING;
     to->state |= FS_EXECUTING;
-
-    fiber_asm_switch(&from->stack_ptr, to->stack_ptr);
+    fiber_asm_switch(&from->regs, &to->regs);
 }
 
 void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
@@ -108,51 +102,56 @@ void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
 
 void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s) {
     ASSERT(fbr != 0);
-    CHECK_COOKIE(fbr);
-    ASSERT(f != 0);
-    ASSERT((fbr->state & FS_EXECUTING) == 0);
-    ASSERT(s > 0 || args != 0);
+    ASSERT(!fiber_is_executing(fbr));
 
-    size_t aligned_size = (s + STACK_ALIGNMENT - 1) & ~(STACK_ALIGNMENT - 1);
+    char *sp = fbr->regs.sp;
+    sp = (char *) ((uptr) sp & ~ (STACK_ALIGNMENT - 1)); // align stack
+    s = (s + STACK_ALIGNMENT - 1) & ~ ((size_t) STACK_ALIGNMENT - 1);
 
-    byte *stack_ptr = (byte *) fbr->stack_ptr;
-    stack_ptr -= aligned_size;
-    *args = (void *) stack_ptr;
-
-    stack_ptr -= sizeof (size_t);
-    * (size_t *) stack_ptr = aligned_size;
+    sp -= s;
+    *args = (void *) sp;
     
-    stack_ptr -= sizeof (void *);
-    * (void **) stack_ptr = f;
-    
-    fbr->stack_ptr = stack_ptr;
-    fiber_asm_push_invoker(&fbr->stack_ptr);
+    sp -= sizeof fbr->regs.sp;    
+    *(void **)sp = fbr->regs.sp;
+
+    sp -= sizeof *args;
+    *(void **)sp = *args;
+
+    sp -= sizeof (FiberFunc);
+    *(FiberFunc *)sp = f;
+
+    sp -= WORD_SIZE; // push junk (for alignment)
+
+    sp -= sizeof (FiberFunc);
+    *(FiberFunc *)sp = (FiberFunc) fiber_asm_invoke;
+
+    fbr->regs.sp = (void *)sp;
 }
 
 
-void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, const void *args, size_t s) {
+void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t s) {
     UNUSED(s);
-
     ASSERT(active != 0);
-    CHECK_COOKIE(active);
     ASSERT(temp != 0);
-    CHECK_COOKIE(temp);
-    
-    ASSERT((active->state & FS_EXECUTING) != 0);
+    ASSERT(fiber_is_executing(active));
     
     if (active == temp) {
         f(args);
     } else {
-        ASSERT((temp->state & FS_EXECUTING) == 0);
+        ASSERT(!fiber_is_executing(temp));
         temp->state |= FS_EXECUTING;
         active->state &= ~ FS_EXECUTING;
-        fiber_asm_exec_on_stack(temp->stack_ptr, f, args);
+        fiber_asm_exec_on_stack(temp->regs.sp, f, args);
         active->state |= FS_EXECUTING;
         temp->state &= ~ FS_EXECUTING;
     }
 }
 
-static void fiber_guard(const void *args) {
+static void fiber_guard(void *args) {
     UNUSED(args);
     abort(); // cannot continue
+}
+
+void asm_assert_fail() {
+    abort();
 }

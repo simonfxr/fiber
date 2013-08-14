@@ -13,9 +13,9 @@ ASM := $(COMP_ASM)
 DEBUG_CFLAGS ?= -ggdb -fstack-protector
 DEBUG_ASMFLAGS ?= -g dwarf2 
 
-OPT_CFLAGS := -O0 -march=native
+OPT_CFLAGS := -O3 -march=native
 
-CFLAGS := -Wall -Wextra -std=c99 -DWORD_SIZE=8 -DSTACK_ALIGNMENT=16 \
+CFLAGS := -Wall -Wextra -std=c99 -DFIBER_BITS64 \
 	$(OPT_CFLAGS) \
 	$(DEBUG_CFLAGS) $(EXTRA_CFLAGS)
 

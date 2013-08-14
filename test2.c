@@ -14,7 +14,7 @@ typedef void (*GeneratorF)(const GeneratorArgs *);
 
 typedef unsigned char byte;
 
-#define STACK_SIZE 65536
+#define STACK_SIZE (65536)
 
 typedef enum {
     GenActive,
@@ -26,7 +26,6 @@ struct Generator {
     GenState state;
     void *ret;
     Fiber *caller;
-    byte stack[];
 };
 
 struct GeneratorArgs {
@@ -35,19 +34,14 @@ struct GeneratorArgs {
     byte state[];
 };
 
-void gen_invoke(const void *args);
+void gen_invoke(void *args);
 
 Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, const void *state) {
-    Generator *gen = malloc(offsetof(Generator, stack[stack_size]));
+    Generator *gen = malloc(sizeof *gen);
     if (gen == 0)
         return 0;
 
-    gen->fiber = fiber_init(&gen->stack[0], stack_size);
-
-    if (gen->fiber == 0) {
-        free(gen);
-        return 0;
-    }
+    fiber_alloc(&gen->fiber, stack_size);
 
     gen->state = GenActive;
     gen->ret = 0;
@@ -59,7 +53,7 @@ Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, const 
 
     args->gen = gen;
     args->next = next;
-    memcpy(args + offsetof(GeneratorArgs, state[0]), state, state_size);
+    memcpy(&args->state[0], state, state_size);
     return gen;
 }
 
@@ -76,7 +70,7 @@ void gen_finish(Generator *gen) {
     abort();
 }
 
-void gen_invoke(const void *args0) {
+void gen_invoke(void *args0) {
     const GeneratorArgs *args = (const GeneratorArgs *) args0;
     args->next(args);
     gen_finish(args->gen);
@@ -106,6 +100,7 @@ void gen_close(Fiber *caller, Generator *gen) {
 
 void gen_destroy(Fiber *caller, Generator *gen) {
     gen_close(caller, gen);
+    fiber_free(gen->fiber);
     free(gen);
 }
 
