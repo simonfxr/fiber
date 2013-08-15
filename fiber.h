@@ -8,6 +8,10 @@
 #  define FIBER_SHARED __attribute__((visibility("default")))
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint32_t FiberState;
 
 #define FS_EXECUTING ((FiberState) 1)
@@ -69,5 +73,9 @@ static inline int fiber_is_executing(Fiber *fiber) {
 static inline int fiber_is_alive(Fiber *fiber) {
     return (fiber->state & FS_ALIVE) != 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -29,10 +29,11 @@ typedef uintptr_t uptr;
 
 #define IS_STACK_ALIGNED(x) (((uintptr_t) (x) & (STACK_ALIGNMENT - 1)) == 0)
 #define STACK_ALIGN(x) ((uintptr_t) (x) & ~ (STACK_ALIGNMENT - 1))
+#define NOINLINE __attribute__((noinline))
 
 static void fiber_guard(void *);
 
-Fiber *fiber_init(Fiber *fbr, void *stack, size_t stack_size) {
+NOINLINE Fiber *fiber_init(Fiber *fbr, void *stack, size_t stack_size) {
     fbr->stack = stack;
     fbr->stack_size = stack_size;
 
@@ -47,14 +48,14 @@ Fiber *fiber_init(Fiber *fbr, void *stack, size_t stack_size) {
     return fbr;
 }
 
-void fiber_init_toplevel(Fiber *fbr) {
+NOINLINE void fiber_init_toplevel(Fiber *fbr) {
     fbr->stack = 0;
     fbr->stack_size = 0;
     memset(&fbr->regs, 0, sizeof fbr->regs);
     fbr->state = FS_ALIVE | FS_TOPLEVEL | FS_EXECUTING;
 }
 
-int fiber_alloc(Fiber *fbr, size_t size) {
+NOINLINE int fiber_alloc(Fiber *fbr, size_t size) {
     const size_t page_size = 4096;
     size_t npages = (size + page_size - 1) / page_size;
     npages += 2; // guard pages ;
@@ -72,7 +73,7 @@ int fiber_alloc(Fiber *fbr, size_t size) {
     return 1;
 }
 
-void fiber_destroy(Fiber *fbr) {
+NOINLINE void fiber_destroy(Fiber *fbr) {
     ASSERT(!fiber_is_executing(fbr));
     ASSERT(!fiber_is_toplevel(fbr));
     size_t size = fbr->stack_size + 2 * 4096;
@@ -80,7 +81,7 @@ void fiber_destroy(Fiber *fbr) {
     munmap(stack, size);
 }
 
-void fiber_switch(Fiber *from, Fiber *to) {
+NOINLINE void fiber_switch(Fiber *from, Fiber *to) {
     ASSERT(from != 0);
     ASSERT(to != 0);
     
@@ -95,13 +96,13 @@ void fiber_switch(Fiber *from, Fiber *to) {
     fiber_asm_switch(&from->regs, &to->regs);
 }
 
-void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
+NOINLINE void fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s) {
     void *args_dest;
     fiber_reserve_return(fbr, f, &args_dest, s);
     memcpy(args_dest, args, s);
 }
 
-void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s) {
+NOINLINE void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s) {
     ASSERT(fbr != 0);
     ASSERT(!fiber_is_executing(fbr));
 
@@ -130,7 +131,7 @@ void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s) {
     fbr->regs.sp = (void *)sp;
 }
 
-void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t s) {
+NOINLINE void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t s) {
     UNUSED(s);
     ASSERT(active != 0);
     ASSERT(temp != 0);
