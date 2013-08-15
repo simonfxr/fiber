@@ -1,3 +1,4 @@
 *.o
 test
 test2
+libfiber.so

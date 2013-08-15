@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef FIBER_SHARED
+#  define FIBER_SHARED __attribute__((visibility("default")))
+#endif
+
 typedef uint32_t FiberState;
 
 #define FS_EXECUTING ((FiberState) 1)
@@ -38,21 +42,21 @@ typedef struct {
 
 typedef void (*FiberFunc)(void *);
 
-Fiber *fiber_init(Fiber *fiber, void *stack, size_t stack_size);
+FIBER_SHARED Fiber *fiber_init(Fiber *fiber, void *stack, size_t stack_size);
 
-void fiber_init_toplevel(Fiber *fiber);
+FIBER_SHARED void fiber_init_toplevel(Fiber *fiber);
 
-void fiber_alloc(Fiber **fiber, size_t stack_size);
+FIBER_SHARED void fiber_alloc(Fiber **fiber, size_t stack_size);
 
-void fiber_free(Fiber *fiber);
+FIBER_SHARED void fiber_free(Fiber *fiber);
 
-void fiber_switch(Fiber *from, Fiber *to);
+FIBER_SHARED void fiber_switch(Fiber *from, Fiber *to);
 
-void fiber_push_return(Fiber *fiber, FiberFunc f, const void *args, size_t args_size);
+FIBER_SHARED void fiber_push_return(Fiber *fiber, FiberFunc f, const void *args, size_t args_size);
 
-void fiber_reserve_return(Fiber *fiber, FiberFunc f, void **args_dest, size_t args_size);
+FIBER_SHARED void fiber_reserve_return(Fiber *fiber, FiberFunc f, void **args_dest, size_t args_size);
 
-void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t args_size);
+FIBER_SHARED void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t args_size);
 
 static inline int fiber_is_toplevel(Fiber *fiber) {
     return (fiber->state & FS_TOPLEVEL) != 0;

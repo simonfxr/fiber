@@ -13,9 +13,11 @@
 #ifdef FIBER_BITS32
 #  define WORD_SIZE ((size_t) 4)
 #  define STACK_ALIGNMENT ((uptr) 4)
+#  define RED_ZONE ((size_t) 0)
 #else
 #  define WORD_SIZE ((size_t) 8)
 #  define STACK_ALIGNMENT ((uptr) 16)
+#  define RED_ZONE ((size_t) 128)
 #endif
 
 typedef unsigned char byte;
@@ -26,6 +28,7 @@ typedef uintptr_t uptr;
 #define UNUSED(a) ((void) (a))
 
 #define IS_STACK_ALIGNED(x) (((uintptr_t) (x) & (STACK_ALIGNMENT - 1)) == 0)
+#define STACK_ALIGN(x) ((uintptr_t) (x) & ~ (STACK_ALIGNMENT - 1))
 
 static void fiber_guard(void *);
 
@@ -110,7 +113,7 @@ void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s) {
     ASSERT(!fiber_is_executing(fbr));
 
     char *sp = fbr->regs.sp;
-    sp = (char *) ((uptr) sp & ~ (STACK_ALIGNMENT - 1)); // align stack
+    sp = (char *) STACK_ALIGN(sp);
     s = (s + STACK_ALIGNMENT - 1) & ~ ((size_t) STACK_ALIGNMENT - 1);
 
     sp -= s;
@@ -125,14 +128,14 @@ void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s) {
     sp -= sizeof (FiberFunc);
     *(FiberFunc *)sp = f;
 
-    sp -= WORD_SIZE; // push junk (for alignment)
+    sp -= WORD_SIZE;
+    ASSERT(IS_STACK_ALIGNED(sp));
 
     sp -= sizeof (FiberFunc);
     *(FiberFunc *)sp = (FiberFunc) fiber_asm_invoke;
 
     fbr->regs.sp = (void *)sp;
 }
-
 
 void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t s) {
     UNUSED(s);
@@ -155,8 +158,4 @@ void fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t s
 static void fiber_guard(void *args) {
     UNUSED(args);
     abort(); // cannot continue
-}
-
-void asm_assert_fail() {
-    abort();
 }

@@ -1,9 +1,11 @@
 
-extern asm_assert_fail
+default rel
+
+section .text
         
-global fiber_asm_switch
-global fiber_asm_invoke
-global fiber_asm_exec_on_stack
+global fiber_asm_switch:function hidden
+global fiber_asm_invoke:function hidden
+global fiber_asm_exec_on_stack:function hidden
 
 struc regs
 regs_rsp:       resq 1
@@ -15,7 +17,6 @@ regs_r14:       resq 1
 regs_r15:       resq 1
 endstruc
 
-align 16, nop
 fiber_asm_switch:               ; Regs *from, Regs *to -> void
         mov [rdi + regs_rbp], rbp
         mov [rdi + regs_rbx], rbx
@@ -24,7 +25,10 @@ fiber_asm_switch:               ; Regs *from, Regs *to -> void
         mov [rdi + regs_r14], r14
         mov [rdi + regs_r15], r15
         push rdi
-        push fiber_asm_continue
+
+        jmp .get_addr
+.got_addr:
+
         mov [rdi + regs_rsp], rsp
         mov rsp, [rsi + regs_rsp]
 
@@ -33,11 +37,11 @@ fiber_asm_switch:               ; Regs *from, Regs *to -> void
         and rax, 15
         test rax, rax
         jz .ok
-        call asm_assert_fail
+        jmp $
 .ok:     
         ret
-
-align 16, nop
+.get_addr        
+        call .got_addr
 fiber_asm_continue:
         pop rax
         mov rbp, [rax + regs_rbp]
@@ -52,11 +56,12 @@ fiber_asm_continue:
         and rax, 15
         test rax, rax
         jz .ok
-        call asm_assert_fail
+        jmp $
 .ok:
         ret
+.end:
+size fiber_asm_switch fiber_asm_continue.end - fiber_asm_switch
 
-align 16, nop
 fiber_asm_invoke:
         pop rsi                 ; chunk (for alignment)
         pop rsi                 ; function to call
@@ -66,13 +71,14 @@ fiber_asm_invoke:
         and rcx, 15
         test rcx, rcx
         jz .ok
-        call asm_assert_fail
+        jmp $
 .ok:
         call rsi
         mov rsp, [rsp + 8]
         ret
+.end:
+size fiber_asm_invoke fiber_asm_invoke.end - fiber_asm_invoke
 
-align 16, nop
 fiber_asm_exec_on_stack:        ; stack_ptr, void (*)(void *), void * -> void
         mov rax, rsp            
         lea rsp, [rdi - 8]      ; set up new stack_ptr
@@ -82,9 +88,11 @@ fiber_asm_exec_on_stack:        ; stack_ptr, void (*)(void *), void * -> void
         and rax, 15
         test rax, rax
         jz .ok
-        call asm_assert_fail
+        jmp $
 .ok:     
         mov rdi, rdx        
         call rsi
         mov rsp, [rsp]          ; load old stack_ptr
         ret
+.end:
+size fiber_asm_exec_on_stack fiber_asm_exec_on_stack.end - fiber_asm_exec_on_stack

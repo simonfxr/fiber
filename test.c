@@ -11,6 +11,7 @@ typedef struct Thread Thread;
 typedef struct Sched Sched;
 
 struct Thread {
+    Sched *sched;
     Thread *prev, *next;
     Fiber *fiber;
 };
@@ -24,17 +25,20 @@ struct Sched {
 };
 
 typedef struct {
+    Thread *thread;
     void (*entry)(void);
 } ThreadArgs;
 
-static Sched *sched;
+Thread *the_thread;
 
-static Fiber *thread_fiber(Thread *t) {
-    return t->fiber;
+static Fiber *thread_fiber(Thread *th) {
+    return th->fiber;
 }
 
 static void thread_switch(Thread *from, Thread *to) {
+    Sched *sched = from->sched;
     assert(sched->running == from);
+    assert(the_thread == from);
     
     if (sched->fuel == 0)
         to = &sched->main_thread;
@@ -42,63 +46,68 @@ static void thread_switch(Thread *from, Thread *to) {
         --sched->fuel;
 
     sched->running = to;
+    the_thread = to;
     fiber_switch(thread_fiber(from), thread_fiber(to));
 }
 
-static void yield() {
-    thread_switch(sched->running, sched->running->next);
+static void yield(void) {
+    thread_switch(the_thread, the_thread->next);
 }
 
-static void thread_destroy(Thread *t) {
-    fiber_free(thread_fiber(t));
-    free(t);
+static void thread_destroy(Thread *th) {
+    fiber_free(thread_fiber(th));
+    free(th);
 }
 
-static void thread_end() {
-    Thread *t = sched->running;
-    Thread *next = t->next;
+static void thread_end(void) {
+    Sched *sched = the_thread->sched;
+    Thread *th = the_thread;
+    Thread *next = th->next;
     
-    t->prev->next = t->next;
-    t->next->prev = t->prev;
+    th->prev->next = th->next;
+    th->next->prev = th->prev;
     
-    t->next = sched->done;
-    t->prev = 0;
-    sched->done = t;
+    th->next = sched->done;
+    th->prev = 0;
+    sched->done = th;
 
-    thread_switch(t, next);
+    thread_switch(th, next);
 }
 
 static void thread_exec(void *args0) {
     ThreadArgs *args = (ThreadArgs *) args0;
+    the_thread = args->thread;
     args->entry();
     thread_end();
 }
 
-static void thread_start(void (*func)(void)) {
-    Thread *t = malloc(sizeof *t);
-    Fiber *fbr;
-    fiber_alloc(&fbr, STACK_SIZE);
-    t->fiber = fbr;
+static void thread_start(Sched *sched, void (*func)(void)) {
+    Thread *th = malloc(sizeof *th);
+    th->sched = sched;
+    fiber_alloc(&th->fiber, STACK_SIZE);
 
     ThreadArgs args;
+    args.thread = th;
     args.entry = func;
-    fiber_push_return(fbr, thread_exec, &args, sizeof args);
+    fiber_push_return(th->fiber, thread_exec, &args, sizeof args);
     
-    t->next = sched->running->next;
-    t->prev = sched->running;
-    t->next->prev = t;
-    t->prev->next = t;
+    th->next = sched->running->next;
+    th->prev = sched->running;
+    th->next->prev = th;
+    th->prev->next = th;
 }
 
 static void sched_init(Sched *s) {
-    sched = s;
     s->main_thread.prev = &s->main_thread;
     s->main_thread.next = &s->main_thread;
     s->main_thread.fiber = &s->main_fiber;
+    s->main_thread.sched = s;
     fiber_init_toplevel(&s->main_fiber);
 
     s->running = &s->main_thread;
     s->done = 0;
+    
+    the_thread = &s->main_thread;
 }
 
 static void run_put_str(void *arg) {
@@ -107,8 +116,8 @@ static void run_put_str(void *arg) {
 }
 
 static void put_str(const char *str) {
-    fiber_exec_on(thread_fiber(sched->running),
-                  &sched->main_fiber, run_put_str, &str, sizeof str);
+    fiber_exec_on(thread_fiber(the_thread),
+                  &the_thread->sched->main_fiber, run_put_str, &str, sizeof str);
 }
 
 static void thread1() {
@@ -135,16 +144,7 @@ static void thread3() {
     put_str("thread3 exiting");
 }
 
-int main(void) {
-
-    Sched s;
-    sched_init(&s);
-    s.fuel = 100;
-
-    thread_start(thread1);
-    thread_start(thread2);
-    thread_start(thread3);
-
+static void execute(Sched *sched) {
     while (sched->running->next != &sched->main_thread && sched->fuel > 0) {
         yield();
 
@@ -162,6 +162,19 @@ int main(void) {
             thread_destroy(t);
         }
     }
-    
+}
+
+int main(void) {
+
+    Sched s;
+    sched_init(&s);
+    s.fuel = 100;
+
+    thread_start(&s, thread1);
+    thread_start(&s, thread2);
+    thread_start(&s, thread3);
+
+    execute(&s);
+
     return 0;
 }

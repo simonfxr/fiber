@@ -1,11 +1,9 @@
 #ifndef FIBER_ASM_H
 #define FIBER_ASM_H
 
-#include <stddef.h>
-
 typedef void *StackPtr;
 
-void fiber_asm_switch(Regs *from, Regs *to);
+extern void fiber_asm_switch(Regs *from, Regs *to);
 
 /*
  * before this function is called,
@@ -15,8 +13,8 @@ void fiber_asm_switch(Regs *from, Regs *to);
  * followed by pointer to args
  * followed by function to call
  */ 
-void fiber_asm_invoke(void);
+extern void fiber_asm_invoke(void);
 
-void fiber_asm_exec_on_stack(StackPtr, FiberFunc, void *);
+extern void fiber_asm_exec_on_stack(StackPtr, FiberFunc, void *);
 
 #endif
