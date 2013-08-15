@@ -13,14 +13,14 @@ ASM := $(COMP_ASM)
 DEBUG_CFLAGS ?= -ggdb -fstack-protector
 DEBUG_ASMFLAGS ?= -g dwarf2 
 
-OPT_CFLAGS := -O3 -march=native
+OPT_CFLAGS := -O0 -march=native
 
 CFLAGS := -Wall -Wextra -std=c99 -DFIBER_BITS64 \
 	$(OPT_CFLAGS) \
 	$(DEBUG_CFLAGS) $(EXTRA_CFLAGS)
 
 LDFLAGS := $(EXTRA_LDFLAGS)
-ASMFLAGS := -f elf64 $(EXTRA_ASMFLAGS)
+ASMFLAGS := -f elf64 $(DEBUG_ASMFLAGS) $(EXTRA_ASMFLAGS)
 
 DYN_CFLAGS := $(CFLAGS) -fPIC -fvisibility=hidden
 DYN_LDFLAGS := $(LDFLAGS) -shared

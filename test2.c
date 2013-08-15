@@ -26,7 +26,7 @@ union Value {
 };
 
 struct Generator {
-    Fiber *fiber;
+    Fiber fiber;
     GenState state;
     Value ret;
     int closing;
@@ -54,7 +54,7 @@ Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, void *
 
     GeneratorArgs *args;
     const size_t size = offsetof(GeneratorArgs, state[state_size]);
-    fiber_reserve_return(gen->fiber, gen_invoke, (void **) &args, size);
+    fiber_reserve_return(&gen->fiber, gen_invoke, (void **) &args, size);
 
     args->gen = gen;
     args->next = next;
@@ -65,7 +65,7 @@ Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, void *
 int gen_yield(Generator *gen, Value *value) {
     gen->state = GenActive;
     gen->ret = *value;
-    fiber_switch(gen->fiber, gen->caller);
+    fiber_switch(&gen->fiber, gen->caller);
     *value = gen->ret;
     gen->ret.ptr = 0;
     return !gen->closing;
@@ -73,7 +73,7 @@ int gen_yield(Generator *gen, Value *value) {
 
 void gen_finish(Generator *gen) {
     gen->state = GenDrained;
-    fiber_switch(gen->fiber, gen->caller);
+    fiber_switch(&gen->fiber, gen->caller);
 }
 
 void gen_invoke(void *args0) {
@@ -87,7 +87,7 @@ int gen_next(Fiber *caller, Generator *gen, Value *value) {
     switch (gen->state) {
     case GenActive:
         gen->caller = caller;
-        fiber_switch(caller, gen->fiber);
+        fiber_switch(caller, &gen->fiber);
 
         switch (gen->state) {
         case GenActive:
@@ -116,7 +116,7 @@ void gen_close(Fiber *caller, Generator *gen) {
 
 void gen_destroy(Fiber *caller, Generator *gen) {
     gen_close(caller, gen);
-    fiber_free(gen->fiber);
+    fiber_destroy(&gen->fiber);
     free(gen);
 }
 
@@ -148,13 +148,13 @@ void take_gen(GeneratorArgs *gen_args) {
     while (state->n --> 0) {
         Value value;
         value.ptr = 0;
-        if (!gen_next(gen_args->gen->fiber, state->gen, &value))
+        if (!gen_next(&gen_args->gen->fiber, state->gen, &value))
             break;
         if (!gen_yield(gen_args->gen, &value))
             break;
     }
 
-    gen_destroy(gen_args->gen->fiber, state->gen);
+    gen_destroy(&gen_args->gen->fiber, state->gen);
 }
 
 Generator *take(int n, Generator *gen) {

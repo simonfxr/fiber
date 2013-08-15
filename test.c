@@ -13,12 +13,11 @@ typedef struct Sched Sched;
 struct Thread {
     Sched *sched;
     Thread *prev, *next;
-    Fiber *fiber;
+    Fiber fiber;
 };
 
 struct Sched {
     Thread main_thread;
-    Fiber main_fiber;
     Thread *running;
     Thread *done; /* only next ptr used */
     size_t fuel;
@@ -32,7 +31,7 @@ typedef struct {
 Thread *the_thread;
 
 static Fiber *thread_fiber(Thread *th) {
-    return th->fiber;
+    return &th->fiber;
 }
 
 static void thread_switch(Thread *from, Thread *to) {
@@ -55,7 +54,7 @@ static void yield(void) {
 }
 
 static void thread_destroy(Thread *th) {
-    fiber_free(thread_fiber(th));
+    fiber_destroy(thread_fiber(th));
     free(th);
 }
 
@@ -89,7 +88,7 @@ static void thread_start(Sched *sched, void (*func)(void)) {
     ThreadArgs args;
     args.thread = th;
     args.entry = func;
-    fiber_push_return(th->fiber, thread_exec, &args, sizeof args);
+    fiber_push_return(&th->fiber, thread_exec, &args, sizeof args);
     
     th->next = sched->running->next;
     th->prev = sched->running;
@@ -100,9 +99,8 @@ static void thread_start(Sched *sched, void (*func)(void)) {
 static void sched_init(Sched *s) {
     s->main_thread.prev = &s->main_thread;
     s->main_thread.next = &s->main_thread;
-    s->main_thread.fiber = &s->main_fiber;
     s->main_thread.sched = s;
-    fiber_init_toplevel(&s->main_fiber);
+    fiber_init_toplevel(&s->main_thread.fiber);
 
     s->running = &s->main_thread;
     s->done = 0;
@@ -117,7 +115,7 @@ static void run_put_str(void *arg) {
 
 static void put_str(const char *str) {
     fiber_exec_on(thread_fiber(the_thread),
-                  &the_thread->sched->main_fiber, run_put_str, &str, sizeof str);
+                  &the_thread->sched->main_thread.fiber, run_put_str, &str, sizeof str);
 }
 
 static void thread1() {

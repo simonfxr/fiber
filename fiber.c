@@ -54,37 +54,30 @@ void fiber_init_toplevel(Fiber *fbr) {
     fbr->state = FS_ALIVE | FS_TOPLEVEL | FS_EXECUTING;
 }
 
-void fiber_alloc(Fiber **fbrp, size_t size) {
+int fiber_alloc(Fiber *fbr, size_t size) {
     const size_t page_size = 4096;
     size_t npages = (size + page_size - 1) / page_size;
     npages += 2; // guard pages ;
     char *stack = (char *) mmap(0, npages * page_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    if (stack == (char *) (intptr_t) - 1) {
-        *fbrp = 0;
-        return;
-    }
+    if (stack == (char *) (intptr_t) - 1)
+        return 0;
 
-    if (mprotect(stack, page_size, PROT_NONE) == -1) {
-        *fbrp = 0;
-        return;
-    }
+    if (mprotect(stack, page_size, PROT_NONE) == -1)
+        return 0;
 
-    if (mprotect(stack + (npages - 1) * page_size, page_size, PROT_NONE) == -1) {
-        *fbrp = 0;
-        return;
-    }
+    if (mprotect(stack + (npages - 1) * page_size, page_size, PROT_NONE) == -1)
+        return 0;
 
-    Fiber *fbr = malloc(sizeof *fbr);
     fiber_init(fbr, stack + page_size, (npages - 2) * page_size);
-    *fbrp = fbr;
+    return 1;
 }
 
-void fiber_free(Fiber *fbr) {
+void fiber_destroy(Fiber *fbr) {
     ASSERT(!fiber_is_executing(fbr));
+    ASSERT(!fiber_is_toplevel(fbr));
     size_t size = fbr->stack_size + 2 * 4096;
     void *stack = (char *) fbr->stack - 4096;
     munmap(stack, size);
-    free(fbr);
 }
 
 void fiber_switch(Fiber *from, Fiber *to) {

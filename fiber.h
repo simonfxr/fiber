@@ -46,9 +46,9 @@ FIBER_SHARED Fiber *fiber_init(Fiber *fiber, void *stack, size_t stack_size);
 
 FIBER_SHARED void fiber_init_toplevel(Fiber *fiber);
 
-FIBER_SHARED void fiber_alloc(Fiber **fiber, size_t stack_size);
+FIBER_SHARED int fiber_alloc(Fiber *fiber, size_t stack_size);
 
-FIBER_SHARED void fiber_free(Fiber *fiber);
+FIBER_SHARED void fiber_destroy(Fiber *fiber);
 
 FIBER_SHARED void fiber_switch(Fiber *from, Fiber *to);
 
