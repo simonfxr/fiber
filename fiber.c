@@ -122,7 +122,10 @@ NOINLINE void fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t 
     sp -= sizeof (FiberFunc);
     *(FiberFunc *)sp = f;
 
+#ifdef FIBER_BITS64
     sp -= WORD_SIZE;
+#endif
+    
     ASSERT(IS_STACK_ALIGNED(sp));
 
     sp -= sizeof (FiberFunc);

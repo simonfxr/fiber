@@ -21,7 +21,10 @@ typedef uint32_t FiberState;
 #if defined(FIBER_BITS32)
 typedef struct {
     void *sp;
-    void *rbp;
+    void *ebp;
+    void *ebx;
+    void *edi;
+    void *esi;
 } Regs;
 #elif defined FIBER_BITS64
 typedef struct {
@@ -72,6 +75,13 @@ static inline int fiber_is_executing(Fiber *fiber) {
 
 static inline int fiber_is_alive(Fiber *fiber) {
     return (fiber->state & FS_ALIVE) != 0;
+}
+
+static inline void fiber_set_alive(Fiber *fiber, int alive) {
+    if (alive)
+        fiber->state |= FS_ALIVE;
+    else
+        fiber->state &= ~FS_ALIVE;
 }
 
 #ifdef __cplusplus
