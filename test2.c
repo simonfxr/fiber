@@ -144,17 +144,18 @@ typedef struct {
 
 void take_gen(GeneratorArgs *gen_args) {
     TakeState *state = (TakeState *) gen_args->state;
+    Generator *gen = gen_args->gen;
 
     while (state->n --> 0) {
         Value value;
         value.ptr = 0;
-        if (!gen_next(&gen_args->gen->fiber, state->gen, &value))
+        if (!gen_next(&gen->fiber, state->gen, &value))
             break;
-        if (!gen_yield(gen_args->gen, &value))
+        if (!gen_yield(gen, &value))
             break;
     }
 
-    gen_destroy(&gen_args->gen->fiber, state->gen);
+    gen_destroy(&gen->fiber, state->gen);
 }
 
 Generator *take(int n, Generator *gen) {

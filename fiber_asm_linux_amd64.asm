@@ -24,43 +24,40 @@ fiber_asm_switch:               ; Regs *from, Regs *to -> void
         mov [rdi + regs_r13], r13
         mov [rdi + regs_r14], r14
         mov [rdi + regs_r15], r15
+        
         push rdi
-
-        jmp .get_addr
-.got_addr:
-
-        mov [rdi + regs_rsp], rsp
-        mov rsp, [rsi + regs_rsp]
-
-        mov rax, rsp
-        add rax, 8              ; skip return address
-        and rax, 15
-        test rax, rax
-        jz .ok
-        jmp $
-.ok:     
-        ret
-.get_addr        
-        call .got_addr
-fiber_asm_continue:
+        call continue
         pop rax
+        
         mov rbp, [rax + regs_rbp]
         mov rbx, [rax + regs_rbx]
         mov r12, [rax + regs_r12]
         mov r13, [rax + regs_r13]
         mov r14, [rax + regs_r14]
         mov r15, [rax + regs_r15]
-        
+
         mov rax, rsp
-        add rax, 8              ; skip return address
-        and rax, 15
-        test rax, rax
+        add eax, 8              ; skip return address
+        test eax, 0xF
         jz .ok
         jmp $
 .ok:
         ret
+.end:        
+size fiber_asm_switch fiber_asm_switch.end - fiber_asm_switch        
+
+continue:
+        mov [rdi + regs_rsp], rsp
+        mov rsp, [rsi + regs_rsp]
+
+        mov rax, rsp
+        add eax, 8              ; skip return address
+        test eax, 0xF
+        jz .ok
+        jmp $
+.ok:     
+        ret
 .end:
-size fiber_asm_switch fiber_asm_continue.end - fiber_asm_switch
 
 fiber_asm_invoke:
         pop rsi                 ; chunk (for alignment)
@@ -68,8 +65,7 @@ fiber_asm_invoke:
         mov rdi, [rsp]          ; rdi points to beginning of arguments
 
         mov rcx, rsp
-        and rcx, 15
-        test rcx, rcx
+        test ecx, 0xF
         jz .ok
         jmp $
 .ok:
@@ -85,8 +81,7 @@ fiber_asm_exec_on_stack:        ; stack_ptr, void (*)(void *), void * -> void
         mov [rsp], rax          ; and push old stack_ptr
 
         mov rax, rsp
-        and rax, 15
-        test rax, rax
+        test eax, 0xF
         jz .ok
         jmp $
 .ok:     
