@@ -55,30 +55,55 @@ NOINLINE void fiber_init_toplevel(Fiber *fbr) {
     fbr->state = FS_ALIVE | FS_TOPLEVEL | FS_EXECUTING;
 }
 
-NOINLINE int fiber_alloc(Fiber *fbr, size_t size) {
-    const size_t page_size = 4096;
-    size_t npages = (size + page_size - 1) / page_size;
-    npages += 2; // guard pages ;
-    char *stack = (char *) mmap(0, npages * page_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    if (stack == (char *) (intptr_t) - 1)
-        return 0;
+static const size_t PAGE_SIZE = 4096;
 
-    if (mprotect(stack, page_size, PROT_NONE) == -1)
-        return 0;
+NOINLINE int fiber_alloc(Fiber *fbr, size_t size, bool use_guard_pages) {
 
-    if (mprotect(stack + (npages - 1) * page_size, page_size, PROT_NONE) == -1)
-        return 0;
+    char *stack;
+    size_t stack_size;
+    
+    if (!use_guard_pages) {
+        stack_size = size;
+        stack = malloc(stack_size);
+        if (!stack)
+            return 0;
+    } else {
+        size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+        npages += 2; // guard pages ;
+        stack_size = (npages - 2) * PAGE_SIZE;
+        stack = (char *) mmap(0, npages * PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+        if (stack == (char *) (intptr_t) - 1)
+            return 0;
+        
+        if (mprotect(stack, PAGE_SIZE, PROT_NONE) == -1)
+            goto fail;
+        
+        if (mprotect(stack + (npages - 1) * PAGE_SIZE, PAGE_SIZE, PROT_NONE) == -1)
+            goto fail;
 
-    fiber_init(fbr, stack + page_size, (npages - 2) * page_size);
+        stack += PAGE_SIZE;
+    }
+    
+    fiber_init(fbr, stack, stack_size);
+    if (use_guard_pages)
+        fbr->state |= FS_HAS_GUARD_PAGES;
+    
     return 1;
+    
+fail:
+    munmap(stack, stack_size + 2 * PAGE_SIZE);
+    return 0;
 }
 
 NOINLINE void fiber_destroy(Fiber *fbr) {
     ASSERT(!fiber_is_executing(fbr));
     ASSERT(!fiber_is_toplevel(fbr));
-    size_t size = fbr->stack_size + 2 * 4096;
-    void *stack = (char *) fbr->stack - 4096;
-    munmap(stack, size);
+
+    if (fbr->state & FS_HAS_GUARD_PAGES) {
+        munmap(fbr->stack - PAGE_SIZE, fbr->stack_size + 2 * PAGE_SIZE);
+    } else {
+        free(fbr->stack);
+    }
 }
 
 NOINLINE void fiber_switch(Fiber *from, Fiber *to) {

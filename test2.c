@@ -46,7 +46,7 @@ Generator *gen_new(size_t stack_size, GeneratorF next, size_t state_size, void *
     if (gen == 0)
         return 0;
 
-    fiber_alloc(&gen->fiber, stack_size);
+    fiber_alloc(&gen->fiber, stack_size, true);
 
     gen->state = GenActive;
     gen->ret.ptr = 0;

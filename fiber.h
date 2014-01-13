@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifndef FIBER_SHARED
 #  define FIBER_SHARED __attribute__((visibility("default")))
@@ -17,6 +18,7 @@ typedef uint32_t FiberState;
 #define FS_EXECUTING ((FiberState) 1)
 #define FS_TOPLEVEL ((FiberState) 2)
 #define FS_ALIVE ((FiberState) 4)
+#define FS_HAS_GUARD_PAGES ((FiberState) 8)
 
 #if defined(FIBER_BITS32)
 typedef struct {
@@ -53,7 +55,7 @@ FIBER_SHARED Fiber *fiber_init(Fiber *fiber, void *stack, size_t stack_size);
 
 FIBER_SHARED void fiber_init_toplevel(Fiber *fiber);
 
-FIBER_SHARED int fiber_alloc(Fiber *fiber, size_t stack_size);
+FIBER_SHARED int fiber_alloc(Fiber *fiber, size_t stack_size, bool use_guard_pages);
 
 FIBER_SHARED void fiber_destroy(Fiber *fiber);
 

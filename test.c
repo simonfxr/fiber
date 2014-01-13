@@ -83,7 +83,7 @@ static void thread_exec(void *args0) {
 static void thread_start(Sched *sched, void (*func)(void)) {
     Thread *th = malloc(sizeof *th);
     th->sched = sched;
-    fiber_alloc(&th->fiber, STACK_SIZE);
+    fiber_alloc(&th->fiber, STACK_SIZE, true);
 
     ThreadArgs args;
     args.thread = th;
