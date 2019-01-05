@@ -2,7 +2,7 @@
 default rel
 
 section .text
-        
+
 global fiber_asm_switch:function hidden
 global fiber_asm_invoke:function hidden
 global fiber_asm_exec_on_stack:function hidden
@@ -24,11 +24,11 @@ fiber_asm_switch:               ; Regs *from, Regs *to -> void
         mov [rdi + regs_r13], r13
         mov [rdi + regs_r14], r14
         mov [rdi + regs_r15], r15
-        
+
         push rdi
         call continue
         pop rax
-        
+
         mov rbp, [rax + regs_rbp]
         mov rbx, [rax + regs_rbx]
         mov r12, [rax + regs_r12]
@@ -43,8 +43,8 @@ fiber_asm_switch:               ; Regs *from, Regs *to -> void
         jmp $
 .ok:
         ret
-.end:        
-size fiber_asm_switch fiber_asm_switch.end - fiber_asm_switch        
+.end:
+size fiber_asm_switch fiber_asm_switch.end - fiber_asm_switch
 
 continue:
         mov [rdi + regs_rsp], rsp
@@ -55,7 +55,7 @@ continue:
         test eax, 0xF           ; check alignment
         jz .ok
         jmp $
-.ok:     
+.ok:
         ret
 .end:
 
@@ -76,7 +76,7 @@ fiber_asm_invoke:
 size fiber_asm_invoke fiber_asm_invoke.end - fiber_asm_invoke
 
 fiber_asm_exec_on_stack:        ; stack_ptr, void (*)(void *), void * -> void
-        mov rax, rsp            
+        mov rax, rsp
         lea rsp, [rdi - 8]      ; set up new stack_ptr
         mov [rsp], rax          ; and push old stack_ptr
 
@@ -84,8 +84,8 @@ fiber_asm_exec_on_stack:        ; stack_ptr, void (*)(void *), void * -> void
         test eax, 0xF           ; check alignment
         jz .ok
         jmp $
-.ok:     
-        mov rdi, rdx        
+.ok:
+        mov rdi, rdx
         call rsi
         mov rsp, [rsp]          ; load old stack_ptr
         ret

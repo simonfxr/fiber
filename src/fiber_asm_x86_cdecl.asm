@@ -1,5 +1,5 @@
 section .text
-        
+
 global fiber_asm_switch:function hidden
 global fiber_asm_invoke:function hidden
 global fiber_asm_exec_on_stack:function hidden
@@ -20,7 +20,7 @@ fiber_asm_switch:       ; Regs *from, Regs *to -> void
         mov [edx + regs_ebx], ebx
         mov [edx + regs_edi], edi
         mov [edx + regs_esi], esi
-        
+
         call continue
         mov edx, [esp + 4]
         mov ebp, [edx + regs_ebp]
@@ -57,6 +57,6 @@ fiber_asm_exec_on_stack:        ; stack_ptr, void (*)(void *), void * -> void
         mov esp, ebx
         pop ebx
         ret
-        
+
 .end:
 size fiber_asm_exec_on_stack fiber_asm_exec_on_stack.end - fiber_asm_exec_on_stack

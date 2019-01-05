@@ -1,0 +1,3 @@
+[submodule "deps/cxx-header-utils"]
+	path = deps/cxx-header-utils
+	url = https://github.com/simonfxr/cxx-header-utils
