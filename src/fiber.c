@@ -57,7 +57,7 @@ fiber_init_toplevel(Fiber *fbr)
 
 static const size_t PAGE_SIZE = 4096;
 
-int
+bool
 fiber_alloc(Fiber *fbr, size_t size, bool use_guard_pages)
 {
     char *stack;
@@ -67,7 +67,7 @@ fiber_alloc(Fiber *fbr, size_t size, bool use_guard_pages)
         stack_size = size;
         stack = malloc(stack_size);
         if (!stack)
-            return 0;
+            return false;
     } else {
         size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
         npages += 2; // guard pages ;
@@ -79,7 +79,7 @@ fiber_alloc(Fiber *fbr, size_t size, bool use_guard_pages)
                               0,
                               0);
         if (stack == (char *) (intptr_t) -1)
-            return 0;
+            return false;
 
         if (mprotect(stack, PAGE_SIZE, PROT_NONE) == -1)
             goto fail;
@@ -95,11 +95,11 @@ fiber_alloc(Fiber *fbr, size_t size, bool use_guard_pages)
     if (use_guard_pages)
         fbr->state |= FIBER_FS_HAS_GUARD_PAGES;
 
-    return 1;
+    return true;
 
 fail:
     munmap(stack, stack_size + 2 * PAGE_SIZE);
-    return 0;
+    return false;
 }
 
 void
@@ -198,5 +198,6 @@ static void
 fiber_guard(void *args)
 {
     UNUSED(args);
+    assert(0 && "fiber_guard called");
     abort(); // cannot continue
 }

@@ -78,7 +78,7 @@ fiber_init(Fiber *fiber, void *stack, size_t stack_size);
 FIBER_API void
 fiber_init_toplevel(Fiber *fiber);
 
-FIBER_API int
+FIBER_API bool
 fiber_alloc(Fiber *fiber, size_t stack_size, bool use_guard_pages);
 
 FIBER_API void
