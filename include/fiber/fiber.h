@@ -23,10 +23,16 @@ extern "C" {
 
 typedef uint32_t FiberState;
 
-#define FIBER_FS_EXECUTING ((FiberState) 1)
-#define FIBER_FS_TOPLEVEL ((FiberState) 2)
-#define FIBER_FS_ALIVE ((FiberState) 4)
-#define FIBER_FS_HAS_GUARD_PAGES ((FiberState) 8)
+#ifdef __cplusplus
+#define FIBER_STATE_CONSTANT(x) static_cast<::FiberState>(x)
+#else
+#define FIBER_STATE_CONSTANT(x) ((FiberState) x)
+#endif
+
+#define FIBER_FS_EXECUTING FIBER_STATE_CONSTANT(1)
+#define FIBER_FS_TOPLEVEL FIBER_STATE_CONSTANT(2)
+#define FIBER_FS_ALIVE FIBER_STATE_CONSTANT(4)
+#define FIBER_FS_HAS_GUARD_PAGES FIBER_STATE_CONSTANT(8)
 
 #if !HU_OS_POSIX_P || !HU_MACH_X86_P
 #error "fiber: platform not supported"
