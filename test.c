@@ -120,6 +120,7 @@ static void put_str(const char *str) {
 
 static void thread1() {
     for (;;) {
+        int x, y;
         put_str("thread1 running");
         yield();
     }

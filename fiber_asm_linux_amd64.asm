@@ -38,7 +38,7 @@ fiber_asm_switch:               ; Regs *from, Regs *to -> void
 
         mov rax, rsp
         add eax, 8              ; skip return address
-        test eax, 0xF
+        test eax, 0xF           ; check alignment
         jz .ok
         jmp $
 .ok:
@@ -52,7 +52,7 @@ continue:
 
         mov rax, rsp
         add eax, 8              ; skip return address
-        test eax, 0xF
+        test eax, 0xF           ; check alignment
         jz .ok
         jmp $
 .ok:     
@@ -65,7 +65,7 @@ fiber_asm_invoke:
         mov rdi, [rsp]          ; rdi points to beginning of arguments
 
         mov rcx, rsp
-        test ecx, 0xF
+        test ecx, 0xF           ; check alignment
         jz .ok
         jmp $
 .ok:
@@ -81,7 +81,7 @@ fiber_asm_exec_on_stack:        ; stack_ptr, void (*)(void *), void * -> void
         mov [rsp], rax          ; and push old stack_ptr
 
         mov rax, rsp
-        test eax, 0xF
+        test eax, 0xF           ; check alignment
         jz .ok
         jmp $
 .ok:     
