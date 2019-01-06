@@ -193,17 +193,17 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = f;
 
-    #ifdef FIBER_TARGET_64_AARCH
+#ifdef FIBER_TARGET_64_AARCH
     sp -= WORD_SIZE;
     assert(IS_STACK_ALIGNED(sp));
-    #endif
+#endif
 
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = (FiberFunc) fiber_asm_invoke;
 
-    #ifdef FIBER_TARGET_64_AARCH
+#ifdef FIBER_TARGET_64_AARCH
     sp -= WORD_SIZE;
-    #endif
+#endif
 
     assert(IS_STACK_ALIGNED(sp));
 
