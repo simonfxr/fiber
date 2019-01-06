@@ -1,6 +1,2 @@
-*.o
-test
-test2
-libfiber.so
 build/
 compile_commands.json
