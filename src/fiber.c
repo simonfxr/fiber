@@ -9,14 +9,19 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#ifdef HU_BITS_32
-#define WORD_SIZE ((size_t) 4)
 #define STACK_ALIGNMENT ((uintptr_t) 16)
+
+#ifdef FIBER_TARGET_32_CDECL
+#define WORD_SIZE ((size_t) 4)
+#define RED_ZONE ((size_t) 0)
+#elif defined(FIBER_TARGET_64_SYSV)
+#define WORD_SIZE ((size_t) 8)
+#define RED_ZONE ((size_t) 128)
+#elif defined(FIBER_TARGET_64_AARCH)
+#define WORD_SIZE ((size_t) 8)
 #define RED_ZONE ((size_t) 0)
 #else
-#define WORD_SIZE ((size_t) 8)
-#define STACK_ALIGNMENT ((uintptr_t) 16)
-#define RED_ZONE ((size_t) 128)
+#error "FIBER_TARGET_* not defined"
 #endif
 
 #define UNUSED(a) ((void) (a))
@@ -188,14 +193,19 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = f;
 
-#ifdef HU_BITS_64
+    #ifdef FIBER_TARGET_64_AARCH
     sp -= WORD_SIZE;
-#endif
-
     assert(IS_STACK_ALIGNED(sp));
+    #endif
 
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = (FiberFunc) fiber_asm_invoke;
+
+    #ifdef FIBER_TARGET_64_AARCH
+    sp -= WORD_SIZE;
+    #endif
+
+    assert(IS_STACK_ALIGNED(sp));
 
     fbr->regs.sp = (void *) sp;
 }

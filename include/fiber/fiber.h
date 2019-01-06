@@ -37,11 +37,8 @@ typedef uint32_t FiberState;
 #define FIBER_FS_ALIVE FIBER_STATE_CONSTANT(4)
 #define FIBER_FS_HAS_GUARD_PAGES FIBER_STATE_CONSTANT(8)
 
-#if !HU_OS_POSIX_P || !HU_MACH_X86_P
-#error "fiber: platform not supported"
-#endif
-
-#if defined(HU_BITS_32)
+#if HU_BITS_32_P && HU_OS_POSIX_P && HU_MACH_X86_P
+#define FIBER_TARGET_32_CDECL 1
 typedef struct
 {
     void *sp;
@@ -50,7 +47,8 @@ typedef struct
     void *edi;
     void *esi;
 } Regs;
-#elif defined(HU_BITS_64)
+#elif HU_BITS_64_P && HU_OS_POSIX_P && HU_MACH_X86_P
+#define FIBER_TARGET_64_SYSV 1
 typedef struct
 {
     void *sp;
@@ -61,8 +59,34 @@ typedef struct
     void *r14;
     void *r15;
 } Regs;
+#elif HU_BITS_64_P && HU_OS_POSIX_P && HU_MACH_ARM_P
+#define FIBER_TARGET_64_AARCH 1
+typedef struct
+{
+    void *sp;
+    void *r19;
+    void *r20;
+    void *r21;
+    void *r22;
+    void *r23;
+    void *r24;
+    void *r25;
+    void *r26;
+    void *r27;
+    void *r28;
+    void *r29;
+    // only low 64 bits have to be preserved
+    uint64_t v8;
+    uint64_t v9;
+    uint64_t v10;
+    uint64_t v11;
+    uint64_t v12;
+    uint64_t v13;
+    uint64_t v14;
+    uint64_t v15;
+} Regs;
 #else
-#error "BITS not defined"
+#error "fiber: system/architecture target not supported"
 #endif
 
 typedef struct

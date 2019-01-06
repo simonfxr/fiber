@@ -12,7 +12,7 @@ extern void fiber_asm_switch(Regs *from, Regs *to);
  * followed by old sp
  * followed by pointer to args
  * followed by function to call
- */ 
+ */
 extern void fiber_asm_invoke(void);
 
 extern void fiber_asm_exec_on_stack(StackPtr, FiberFunc, void *);
