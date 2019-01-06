@@ -135,8 +135,6 @@ fiber_destroy(Fiber *fbr)
 
     if (fbr->state & FIBER_FS_HAS_GUARD_PAGES) {
         size_t npages = (fbr->stack_size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
-        size_t byte_size = npages * PAGE_SIZE;
-
         mprotect(fbr->alloc_stack, PAGE_SIZE, PROT_READ | PROT_WRITE);
         mprotect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
                  PAGE_SIZE,
@@ -193,19 +191,16 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = f;
 
-#ifdef FIBER_TARGET_64_AARCH
-    sp -= WORD_SIZE;
+    sp -= WORD_SIZE; // introduced to realign stack to 16 bytes
     assert(IS_STACK_ALIGNED(sp));
-#endif
 
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = (FiberFunc) fiber_asm_invoke;
 
 #ifdef FIBER_TARGET_64_AARCH
     sp -= WORD_SIZE;
-#endif
-
     assert(IS_STACK_ALIGNED(sp));
+#endif
 
     fbr->regs.sp = (void *) sp;
 }

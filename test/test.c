@@ -4,7 +4,7 @@
 
 #include <fiber/fiber.h>
 
-#define STACK_SIZE (4096ul * 8)
+#define STACK_SIZE (4096ul * 32)
 
 typedef struct Thread Thread;
 
