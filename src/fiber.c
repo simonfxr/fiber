@@ -3,11 +3,11 @@
 #include "fiber_asm.h"
 
 #include <assert.h>
+#include <malloc.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-
-#include <stdio.h>
 
 #ifdef HU_BITS_32
 #define WORD_SIZE ((size_t) 4)
@@ -19,38 +19,59 @@
 #define RED_ZONE ((size_t) 128)
 #endif
 
-typedef unsigned char byte;
-
 #define UNUSED(a) ((void) (a))
 
 #define IS_STACK_ALIGNED(x) (((uintptr_t)(x) & (STACK_ALIGNMENT - 1)) == 0)
 #define STACK_ALIGN(x) ((uintptr_t)(x) & ~(STACK_ALIGNMENT - 1))
 
+typedef struct
+{
+    Fiber *fiber;
+    FiberCleanupFunc cleanup;
+    void *arg;
+} FiberGuardArgs;
+
 static void
 fiber_guard(void *);
 
-Fiber *
-fiber_init(Fiber *fbr, void *stack, size_t stack_size)
+static void
+fiber_init_(Fiber *fbr, FiberCleanupFunc cleanup, void *arg)
 {
-    fbr->stack = stack;
-    fbr->stack_size = stack_size;
-
     memset(&fbr->regs, 0, sizeof fbr->regs);
-    uintptr_t sp = (uintptr_t)((char *) stack + stack_size - WORD_SIZE);
+    uintptr_t sp =
+      (uintptr_t)((char *) fbr->stack + fbr->stack_size - WORD_SIZE);
     sp &= ~(STACK_ALIGNMENT - 1);
     fbr->regs.sp = (void *) sp;
-    void **fbr_dest;
-    fiber_reserve_return(fbr, fiber_guard, (void **) &fbr_dest, sizeof fbr);
-    *fbr_dest = fbr;
-    fbr->state = FIBER_FS_ALIVE;
+    FiberGuardArgs *args;
+    fiber_reserve_return(fbr, fiber_guard, (void **) &args, sizeof *args);
+    args->fiber = fbr;
+    args->cleanup = cleanup;
+    args->arg = arg;
+    fbr->state |= FIBER_FS_ALIVE;
+}
+
+Fiber *
+fiber_init(Fiber *fbr,
+           void *stack,
+           size_t stack_size,
+           FiberCleanupFunc cleanup,
+           void *arg)
+{
+    assert(fbr && "Fiber can not be null");
+    fbr->stack = stack;
+    fbr->stack_size = stack_size;
+    fbr->alloc_stack = NULL;
+    fbr->state = 0;
+    fiber_init_(fbr, cleanup, arg);
     return fbr;
 }
 
 void
 fiber_init_toplevel(Fiber *fbr)
 {
-    fbr->stack = 0;
-    fbr->stack_size = 0;
+    fbr->stack = NULL;
+    fbr->stack_size = (size_t) -1;
+    fbr->alloc_stack = NULL;
     memset(&fbr->regs, 0, sizeof fbr->regs);
     fbr->state = FIBER_FS_ALIVE | FIBER_FS_TOPLEVEL | FIBER_FS_EXECUTING;
 }
@@ -58,47 +79,43 @@ fiber_init_toplevel(Fiber *fbr)
 static const size_t PAGE_SIZE = 4096;
 
 bool
-fiber_alloc(Fiber *fbr, size_t size, bool use_guard_pages)
+fiber_alloc(Fiber *fbr,
+            size_t size,
+            FiberCleanupFunc cleanup,
+            void *arg,
+            bool use_guard_pages)
 {
-    char *stack;
-    size_t stack_size;
+    assert(fbr && "Fiber can not be null");
+    fbr->stack_size = size;
+    const size_t stack_size = size;
 
     if (!use_guard_pages) {
-        stack_size = size;
-        stack = malloc(stack_size);
-        if (!stack)
+        fbr->alloc_stack = fbr->stack = malloc(stack_size);
+        if (!fbr->alloc_stack)
             return false;
     } else {
-        size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-        npages += 2; // guard pages ;
-        stack_size = (npages - 2) * PAGE_SIZE;
-        stack = (char *) mmap(0,
-                              npages * PAGE_SIZE,
-                              PROT_READ | PROT_WRITE,
-                              MAP_PRIVATE | MAP_ANONYMOUS,
-                              0,
-                              0);
-        if (stack == (char *) (intptr_t) -1)
+        size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
+        size_t byte_size = npages * PAGE_SIZE;
+        if (posix_memalign(&fbr->alloc_stack, PAGE_SIZE, byte_size))
             return false;
 
-        if (mprotect(stack, PAGE_SIZE, PROT_NONE) == -1)
+        if (mprotect(fbr->alloc_stack, PAGE_SIZE, PROT_NONE) == -1)
             goto fail;
 
-        if (mprotect(stack + (npages - 1) * PAGE_SIZE, PAGE_SIZE, PROT_NONE) ==
-            -1)
+        if (mprotect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
+                     PAGE_SIZE,
+                     PROT_NONE) == -1)
             goto fail;
 
-        stack += PAGE_SIZE;
+        fbr->stack = fbr->alloc_stack + PAGE_SIZE;
     }
 
-    fiber_init(fbr, stack, stack_size);
-    if (use_guard_pages)
-        fbr->state |= FIBER_FS_HAS_GUARD_PAGES;
-
+    fbr->state = FIBER_FS_HAS_GUARD_PAGES;
+    fiber_init_(fbr, cleanup, arg);
     return true;
 
 fail:
-    munmap(stack, stack_size + 2 * PAGE_SIZE);
+    free(fbr->alloc_stack);
     return false;
 }
 
@@ -108,18 +125,27 @@ fiber_destroy(Fiber *fbr)
     assert(!fiber_is_executing(fbr));
     assert(!fiber_is_toplevel(fbr));
 
+    if (!fbr->alloc_stack)
+        return;
+
     if (fbr->state & FIBER_FS_HAS_GUARD_PAGES) {
-        munmap(fbr->stack - PAGE_SIZE, fbr->stack_size + 2 * PAGE_SIZE);
-    } else {
-        free(fbr->stack);
+        size_t npages = (fbr->stack_size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
+        size_t byte_size = npages * PAGE_SIZE;
+
+        mprotect(fbr->alloc_stack, PAGE_SIZE, PROT_READ | PROT_WRITE);
+        mprotect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
+                 PAGE_SIZE,
+                 PROT_READ | PROT_WRITE);
     }
+
+    free(fbr->alloc_stack);
 }
 
 void
 fiber_switch(Fiber *from, Fiber *to)
 {
-    assert(from != 0);
-    assert(to != 0);
+    assert(from && "Fiber cannot be NULL");
+    assert(to && "Fiber cannot be NULL");
 
     if (from == to)
         return;
@@ -143,7 +169,7 @@ fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s)
 void
 fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
 {
-    assert(fbr != 0);
+    assert(fbr && "Fiber cannot be NULL");
     assert(!fiber_is_executing(fbr));
 
     char *sp = fbr->regs.sp;
@@ -175,11 +201,10 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
 }
 
 void
-fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t s)
+fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
 {
-    UNUSED(s);
-    assert(active != 0);
-    assert(temp != 0);
+    assert(active && "Fiber cannot be NULL");
+    assert(temp && "Fiber cannot be NULL");
     assert(fiber_is_executing(active));
 
     if (active == temp) {
@@ -195,9 +220,15 @@ fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args, size_t s)
 }
 
 static void
-fiber_guard(void *args)
+fiber_guard(void *argsp)
 {
-    UNUSED(args);
-    assert(0 && "fiber_guard called");
-    abort(); // cannot continue
+    FiberGuardArgs *args = (FiberGuardArgs *) argsp;
+    args->fiber->state &= ~FIBER_FS_ALIVE;
+    args->cleanup(args->fiber, args->arg);
+#ifndef NDEBUG
+    assert(0 && "ERROR: fiber cleanup returned");
+#else
+    fprintf(stderr, "ERROR: fiber cleanup returned\n");
+#endif
+    abort();
 }
