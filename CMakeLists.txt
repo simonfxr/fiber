@@ -19,8 +19,6 @@ set(FIBER_ASM_CHECK_ALIGNMENT True CACHE BOOL "add extra stack alignment checks 
 
 set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
 
-#include("${CMAKE_CURRENT_LIST_DIR}/cmake/CMakeASM_NASMInformation.cmake")
-
 set(cflags)
 set(defines)
 set(ldflags)
@@ -33,16 +31,17 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID MATCHES "GCC")
   list(APPEND cflags -Wall -Wextra)
 endif()
 
+message(STATUS CMAKE_SYSTEM_PROCESSOR="${CMAKE_SYSTEM_PROCESSOR}")
+
 set(asm_sources)
-#set(asm_nasm False)
-if(UNIX AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "(x86_64|amd64)" AND NOT FIBER_M32)
+if(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64)" AND NOT FIBER_M32)
   set(asm_sources src/fiber_asm_x64_sysv.S)
-  #set(asm_nasm True)
-elseif(UNIX AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^i.86$" OR FIBER_M32)
+elseif(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^i.86$" OR FIBER_M32)
   set(asm_sources src/fiber_asm_x86_cdecl.S)
-  set(asm_dialect True)
-elseif(UNIX AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+elseif(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
   set(asm_sources src/fiber_asm_aarch64.S)
+elseif(CMAKE_C_SIZEOF_DATA_PTR STREQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(asm_sources src/fiber_asm_arm_elf.S)
 else()
   message(FATAL_ERROR "fiber: combination of system and architecture not supported!")
 endif()
@@ -52,21 +51,14 @@ if(FIBER_M32)
   list(APPEND ldflags "-m32")
 endif()
 
-# set(asm_dialect ASM)
-# if(asm_nasm)
-#   set(asm_dialect ASM_NASM)
-# endif()
-
 enable_language(ASM)
 if(NOT CMAKE_ASM_COMPILER_LOADED)
-  message(FATAL_ERROR "no nasm compatible assembler found")
+  message(FATAL_ERROR "no compatible assembler found")
 endif()
 
 if(FIBER_STANDALONE_PROJECT)
   add_subdirectory(deps/cxx-header-utils)
 endif()
-
-message(STATUS CMAKE_SYSTEM_PROCESSOR="${CMAKE_SYSTEM_PROCESSOR}")
 
 set(fiber_lib_mode)
 if(FIBER_SHARED)
@@ -82,12 +74,7 @@ target_link_libraries(fiber PUBLIC header-utils)
 target_compile_definitions(fiber PRIVATE ${defines})
 
 if(cflags)
-  #if(asm_nasm)
-  #  #exclude *.asm
-  #  set_source_files_properties(src/fiber.c PROPERTIES COMPILE_OPTIONS "${cflags}")
-  # else()
   target_compile_options(fiber PRIVATE ${cflags})
-  # endif()
 endif()
 
 if(ldflags)

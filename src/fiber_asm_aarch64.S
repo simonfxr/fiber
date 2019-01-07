@@ -13,7 +13,7 @@
   .hidden fiber_asm_exec_on_stack
   .type   fiber_asm_exec_on_stack, %function
 
-  .align 2
+  .align 4
 fiber_asm_switch:
   stp xzr, x30, [sp, -16]!
   mov x3, sp
@@ -50,7 +50,7 @@ fiber_asm_switch:
   ret
   .size fiber_asm_switch, .-fiber_asm_switch
 
-  .align 2
+  .align 4
 fiber_asm_invoke:
   ldp x2, x1, [sp], 16
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
@@ -74,7 +74,7 @@ fiber_asm_invoke:
   ret
   .size fiber_asm_invoke, .-fiber_asm_invoke
 
-  .align 2
+  .align 4
 fiber_asm_exec_on_stack:
   mov x3, sp
   stp x3, x30, [x0, -16]!
