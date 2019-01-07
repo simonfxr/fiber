@@ -17,7 +17,7 @@ set(FIBER_SHARED "${FIBER_SHARED}" CACHE BOOL "build shared fiber library")
 
 set(FIBER_ASM_CHECK_ALIGNMENT True CACHE BOOL "add extra stack alignment checks to asm functions")
 
-set(FIBER_M32 "force 32bit compile on x86 via -m32")
+set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
 
 #include("${CMAKE_CURRENT_LIST_DIR}/cmake/CMakeASM_NASMInformation.cmake")
 
