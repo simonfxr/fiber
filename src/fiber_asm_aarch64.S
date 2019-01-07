@@ -3,6 +3,7 @@
 
 .align 2
 .global fiber_asm_switch
+.hidden fiber_asm_switch
 .type fiber_asm_switch, %function
 fiber_asm_switch:
   stp xzr, x30, [sp, -16]!
@@ -30,32 +31,39 @@ fiber_asm_switch:
   ldp d14, d15, [x1]
 
   ldp x0, x30, [x2], 16
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
   mov sp, x2
   tst x2, 0xF
   beq 1f
   b .
 1:
+#endif
   ret
 .size fiber_asm_switch, .-fiber_asm_switch
 
 .align 2
 .global fiber_asm_invoke
+.hidden fiber_asm_invoke
 .type fiber_asm_invoke, %function
 fiber_asm_invoke:
   ldp x2, x1, [sp], 16
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
   mov x2, sp
   tst x2, 0xF
   beq 1f
   b .
 1:
+#endif
   ldr x0, [sp]
   blr x1
   ldp x0, x1, [sp], 16
   mov sp, x1
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
   tst x1, 0xF
   beq 1f
   b .
 1:
+#endif
   ldp x0, x30, [sp], 16
   ret
 .size fiber_asm_invoke, .-fiber_asm_invoke
@@ -63,15 +71,18 @@ fiber_asm_invoke:
 
 .align 2
 .global fiber_asm_exec_on_stack
+.fiber asm_asm_exec_on_stack
 .type fiber_asm_exec_on_stack, %function
 fiber_asm_exec_on_stack:
   mov x3, sp
   stp x3, x30, [x0, -16]!
   mov sp, x0
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
   tst x0, 0xF
   beq 1f
   b .
 1:
+#endif
   mov x0, x2
   blr x1
   ldp x3, x30, [sp]

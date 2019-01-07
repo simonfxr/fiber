@@ -192,6 +192,7 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     *(FiberFunc *) sp = f;
 
     sp -= WORD_SIZE; // introduced to realign stack to 16 bytes
+
     assert(IS_STACK_ALIGNED(sp));
 
     sp -= sizeof(FiberFunc);
@@ -237,3 +238,16 @@ fiber_guard(void *argsp)
 #endif
     abort();
 }
+
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
+void
+fiber_align_check_failed()
+{
+#ifndef NDEBUG
+    assert(0 && "ERROR: fiber stack alignment check failed");
+#else
+    fprintf(stderr, "ERROR: fiber stack alignment check failed\n");
+#endif
+    abort();
+}
+#endif
