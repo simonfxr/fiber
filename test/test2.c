@@ -14,7 +14,7 @@ typedef struct GeneratorArgs GeneratorArgs;
 typedef void (*GeneratorF)(GeneratorArgs *);
 typedef union Value Value;
 
-#define STACK_SIZE (4096ul * 128)
+#define STACK_SIZE ((size_t) 4096)
 
 typedef enum
 {

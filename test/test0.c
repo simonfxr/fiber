@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define STACK_SIZE ((size_t) 4096 * 4)
+
 static void
 fiber_cleanup(Fiber *fiber, void *args)
 {
@@ -50,7 +52,7 @@ main()
     Fiber toplevel;
     fiber_init_toplevel(&toplevel);
     Fiber fiber;
-    fiber_alloc(&fiber, 4096 * 4, fiber_cleanup, NULL, FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI);
+    fiber_alloc(&fiber, STACK_SIZE, fiber_cleanup, NULL, FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI);
     FiberArgs *args;
     fiber_reserve_return(&fiber, fiber_entry, (void **) &args, sizeof *args);
     args->self = &fiber;

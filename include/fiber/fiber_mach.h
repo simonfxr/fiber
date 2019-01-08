@@ -92,12 +92,21 @@ typedef struct
 } FiberRegs;
 #elif HU_OS_WINDOWS_P && HU_BITS_32_P && HU_MACH_X86_P
 #define FIBER_TARGET_32_WIN 1
+#define FIBER_CCONV __cdecl
 typedef struct
 {
     void *sp;
+    void *ebx;
+    void *ebp;
+    void *esi;
+    void *edi;
 } FiberRegs;
 #else
 #error "fiber: system/architecture target not supported"
+#endif
+
+#ifndef FIBER_CCONV
+#define FIBER_CCONV
 #endif
 
 #endif

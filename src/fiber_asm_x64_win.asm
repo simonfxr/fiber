@@ -3,7 +3,7 @@
 fiber_align_check_failed PROTO C
 
 
-fiber_asm_switch proc
+fiber_asm_switch PROC
   mov [rcx + 0], rsp
   mov [rcx + 8], rbx
   mov [rcx + 16], rbp
@@ -25,10 +25,10 @@ fiber_asm_switch proc
   mov r15, [rdx + 64]
 
   ret
-fiber_asm_switch endp
+fiber_asm_switch ENDP
 
 
-fiber_asm_invoke proc
+fiber_asm_invoke PROC
   add rsp, 8
   pop rdx
   mov rcx, [rsp]
@@ -42,10 +42,10 @@ ok:
   call rdx
   mov rsp, [rsp + 40]
   ret
-fiber_asm_invoke endp
+fiber_asm_invoke ENDP
 
 
-fiber_asm_exec_on_stack proc
+fiber_asm_exec_on_stack PROC
   mov rax, rsp
   mov rsp, rcx
   push rax
@@ -60,6 +60,6 @@ ok:
   call rdx
   mov rsp, [rsp + 32]
   ret
-fiber_asm_exec_on_stack endp
+fiber_asm_exec_on_stack ENDP
 
-end
+END

@@ -28,6 +28,7 @@ fiber_asm_switch:
   mov ebx, [ecx + 8]
   mov edi, [ecx + 12]
   mov esi, [ecx + 16]
+
   ret
   .size fiber_asm_switch, .-fiber_asm_switch
 

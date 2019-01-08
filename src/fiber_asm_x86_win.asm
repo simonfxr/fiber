@@ -8,17 +8,56 @@ PUBLIC fiber_asm_invoke
 PUBLIC fiber_asm_exec_on_stack
 
 fiber_asm_switch PROC
-  jmp fiber_align_check_failed
+  mov edx, [esp + 4]
+  mov ecx, [esp + 8]
+
+  mov [edx + 0], esp
+  mov [edx + 4], ebp
+  mov [edx + 8], ebx
+  mov [edx + 12], edi
+  mov [edx + 16], esi
+
+  mov esp, [ecx + 0]
+  mov ebp, [ecx + 4]
+  mov ebx, [ecx + 8]
+  mov edi, [ecx + 12]
+  mov esi, [ecx + 16]
+
+  ret
 fiber_asm_switch ENDP
 
 
 fiber_asm_invoke PROC
+  mov edx, [esp + 4]
+  mov eax, [esp + 8]
+  mov [esp], eax
+  test esp, 3
+  jz ok
   jmp fiber_align_check_failed
+ok:
+  call edx
+  mov esp, [esp + 12]
+  ret
 fiber_asm_invoke ENDP
 
 
 fiber_asm_exec_on_stack PROC
+  mov eax, esp
+  mov esp, [eax + 4]
+  mov ecx, [eax + 8]
+  mov edx, [eax + 12]
+  push eax
+  sub esp, 4
+  push edx
+
+  test esp, 3
+  jz ok
   jmp fiber_align_check_failed
+ok:
+  call ecx
+  add esp, 8
+  pop esp
+  ret
 fiber_asm_exec_on_stack ENDP
 
 END

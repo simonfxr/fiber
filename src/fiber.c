@@ -23,7 +23,7 @@
 #elif defined(FIBER_TARGET_64_WIN)
 #define STACK_ALIGNMENT ((uintptr_t) 16)
 #elif defined(FIBER_TARGET_32_WIN)
-#define STACK_ALIGNMENT ((uintptr_t) 8)
+#define STACK_ALIGNMENT ((uintptr_t) 4)
 #else
 #error "FIBER_TARGET_* not defined"
 #endif

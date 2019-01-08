@@ -1,9 +1,7 @@
 #ifndef FIBER_ASM_H
 #define FIBER_ASM_H
 
-typedef void *StackPtr;
-
-extern void
+extern void FIBER_CCONV
 fiber_asm_switch(FiberRegs *from, FiberRegs *to);
 
 /*
@@ -14,10 +12,10 @@ fiber_asm_switch(FiberRegs *from, FiberRegs *to);
  * followed by pointer to args
  * followed by function to call
  */
-extern void
+extern void FIBER_CCONV
 fiber_asm_invoke(void);
 
-extern void
-fiber_asm_exec_on_stack(StackPtr, FiberFunc, void *);
+extern void FIBER_CCONV
+fiber_asm_exec_on_stack(void *, FiberFunc, void *);
 
 #endif
