@@ -149,7 +149,6 @@ fiber_alloc(Fiber *fbr,
             return false;
     } else {
         size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-        size_t byte_size = npages * PAGE_SIZE;
         if (flags & FIBER_FLAG_GUARD_LO)
             ++npages;
         if (flags & FIBER_FLAG_GUARD_HI)
@@ -163,8 +162,8 @@ fiber_alloc(Fiber *fbr,
                 goto fail;
 
         if (flags & FIBER_FLAG_GUARD_HI)
-            if (!protect_page((char *) fbr->alloc_stack + byte_size - PAGE_SIZE,
-                              false))
+            if (!protect_page(
+                  (char *) fbr->alloc_stack + (npages - 1) * PAGE_SIZE, false))
                 goto fail;
         if (flags & FIBER_FLAG_GUARD_LO)
             fbr->stack = (char *) fbr->alloc_stack + PAGE_SIZE;

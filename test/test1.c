@@ -192,7 +192,7 @@ execute(Sched *sched)
             sched->running->prev = sched->running;
         }
 
-        while (sched->done != 0) {
+        while (sched->done != NULL) {
             Thread *t = sched->done;
             sched->done = sched->done->next;
             printf("thread exiting: %p\n", t);
