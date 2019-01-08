@@ -19,7 +19,7 @@
 #elif defined(FIBER_TARGET_32_ARM_EABI)
 #define STACK_ALIGNMENT ((uintptr_t) 8)
 #elif defined(FIBER_TARGET_64_AARCH)
-#define STACK_ALIGNMENT((uintptr_t) 16)
+#define STACK_ALIGNMENT ((uintptr_t) 16)
 #elif defined(FIBER_TARGET_64_WIN)
 #define STACK_ALIGNMENT ((uintptr_t) 16)
 #elif defined(FIBER_TARGET_32_WIN)
