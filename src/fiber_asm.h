@@ -4,7 +4,7 @@
 typedef void *StackPtr;
 
 extern void
-fiber_asm_switch(Regs *from, Regs *to);
+fiber_asm_switch(FiberRegs *from, FiberRegs *to);
 
 /*
  * before this function is called,

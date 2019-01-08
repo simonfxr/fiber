@@ -105,7 +105,7 @@ thread_start(Sched *sched, void (*func)(void))
 {
     Thread *th = malloc(sizeof *th);
     th->sched = sched;
-    fiber_alloc(&th->fiber, STACK_SIZE, fiber_cleanup, th, true);
+    fiber_alloc(&th->fiber, STACK_SIZE, fiber_cleanup, th, FIBER_FLAG_GUARD_LO);
 
     ThreadArgs args;
     args.thread = th;

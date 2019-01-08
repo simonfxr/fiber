@@ -71,7 +71,7 @@ gen_new(size_t stack_size,
     if (!gen)
         return NULL;
 
-    fiber_alloc(&gen->fiber, stack_size, gen_finish, gen, true);
+    fiber_alloc(&gen->fiber, stack_size, gen_finish, gen, FIBER_FLAG_GUARD_LO);
 
     gen->closing = false;
     gen->state = GenActive;

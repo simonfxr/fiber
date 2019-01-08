@@ -22,6 +22,8 @@
 #define STACK_ALIGNMENT((uintptr_t) 16)
 #elif defined(FIBER_TARGET_64_WIN)
 #define STACK_ALIGNMENT ((uintptr_t) 16)
+#elif defined(FIBER_TARGET_32_WIN)
+#define STACK_ALIGNMENT ((uintptr_t) 8)
 #else
 #error "FIBER_TARGET_* not defined"
 #endif
@@ -87,68 +89,95 @@ fiber_init_toplevel(Fiber *fbr)
 
 static const size_t PAGE_SIZE = 4096;
 
+static void *
+alloc_pages(size_t npages)
+{
+#if HU_OS_POSIX_P
+    void *ret = NULL;
+    if (posix_memalign(&ret, PAGE_SIZE, npages * PAGE_SIZE))
+        return NULL;
+    return ret;
+#elif HU_OS_WINDOWS_P
+    return _aligned_malloc(npages * PAGE_SIZE, PAGE_SIZE);
+#else
+#error "BUG: platform not properly handled"
+#endif
+}
+
+static void
+free_pages(void *p)
+{
+#if HU_OS_POSIX_P
+    free(p);
+#elif HU_OS_WINDOWS_P
+    _aligned_free(p);
+#else
+#error "BUG: platform not properly handled"
+#endif
+}
+
+static bool
+protect_page(void *p, bool rw)
+{
+#if HU_OS_POSIX_P
+    return mprotect(p, PAGE_SIZE, rw ? PROT_READ | PROT_WRITE : PROT_NONE) == 0;
+#elif HU_OS_WINDOWS_P
+    DWORD old_protect;
+    return VirtualProtect(
+             p, PAGE_SIZE, rw ? PAGE_READWRITE : PAGE_NOACCESS, &old_protect) !=
+           0;
+#else
+#error "BUG: platform not properly handled"
+#endif
+}
+
 bool
 fiber_alloc(Fiber *fbr,
             size_t size,
             FiberCleanupFunc cleanup,
             void *arg,
-            bool use_guard_pages)
+            FiberFlags flags)
 {
+    flags &= FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI;
     assert(fbr && "Fiber can not be null");
     fbr->stack_size = size;
     const size_t stack_size = size;
 
-    if (!use_guard_pages) {
+    if (!flags) {
         fbr->alloc_stack = fbr->stack = malloc(stack_size);
         if (!fbr->alloc_stack)
             return false;
     } else {
-        size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
+        size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
         size_t byte_size = npages * PAGE_SIZE;
-#if HU_OS_POSIX_P
-        if (posix_memalign(&fbr->alloc_stack, PAGE_SIZE, byte_size))
-            return false;
-
-        if (mprotect(fbr->alloc_stack, PAGE_SIZE, PROT_NONE) == -1)
-            goto fail;
-
-        if (mprotect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
-                     PAGE_SIZE,
-                     PROT_NONE) == -1)
-            goto fail;
-
-#elif HU_OS_WINDOWS_P
-        fbr->alloc_stack = _aligned_malloc(byte_size, PAGE_SIZE);
+        if (flags & FIBER_FLAG_GUARD_LO)
+            ++npages;
+        if (flags & FIBER_FLAG_GUARD_HI)
+            ++npages;
+        fbr->alloc_stack = alloc_pages(npages);
         if (!fbr->alloc_stack)
             return false;
 
-        DWORD old_protect;
-        if (!VirtualProtect(
-              fbr->alloc_stack, PAGE_SIZE, PAGE_NOACCESS, &old_protect))
-            goto fail;
+        if (flags & FIBER_FLAG_GUARD_LO)
+            if (!protect_page(fbr->alloc_stack, false))
+                goto fail;
 
-        if (!VirtualProtect((char *) fbr->alloc_stack +
-                              (npages - 1) * PAGE_SIZE,
-                            PAGE_SIZE,
-                            PAGE_NOACCESS,
-                            &old_protect))
-            goto fail;
-#else
-#error "BUG: platform not properly handled"
-#endif
-        fbr->stack = (char *) fbr->alloc_stack + PAGE_SIZE;
+        if (flags & FIBER_FLAG_GUARD_HI)
+            if (!protect_page((char *) fbr->alloc_stack + byte_size - PAGE_SIZE,
+                              false))
+                goto fail;
+        if (flags & FIBER_FLAG_GUARD_LO)
+            fbr->stack = (char *) fbr->alloc_stack + PAGE_SIZE;
+        else
+            fbr->stack = fbr->alloc_stack;
     }
 
-    fbr->state = FIBER_FS_HAS_GUARD_PAGES;
+    fbr->state = flags;
     fiber_init_(fbr, cleanup, arg);
     return true;
 
 fail:
-#if HU_OS_WINDOWS_P
-    _aligned_free(fbr->alloc_stack);
-#else
-    free(fbr->alloc_stack);
-#endif
+    free_pages(fbr->alloc_stack);
     return false;
 }
 
@@ -160,41 +189,29 @@ fiber_destroy(Fiber *fbr)
 
     if (!fbr->alloc_stack)
         return;
-#if HU_OS_WINDOWS_P
-    bool aligned_free = false;
-#endif
 
-    if (fbr->state & FIBER_FS_HAS_GUARD_PAGES) {
-        size_t npages = (fbr->stack_size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
-#if HU_OS_POSIX_P
-        mprotect(fbr->alloc_stack, PAGE_SIZE, PROT_READ | PROT_WRITE);
-        mprotect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
-                 PAGE_SIZE,
-                 PROT_READ | PROT_WRITE);
-#elif HU_OS_WINDOWS_P
-        aligned_free = true;
-        DWORD old_protect;
-        VirtualProtect(
-          fbr->alloc_stack, PAGE_SIZE, PAGE_READWRITE, &old_protect);
-        VirtualProtect((char *) fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
-                       PAGE_SIZE,
-                       PAGE_READWRITE,
-                       &old_protect);
-#endif
+    bool aligned_free = false;
+
+    if (fbr->state &
+        (FIBER_FS_HAS_HI_GUARD_PAGE | FIBER_FS_HAS_LO_GUARD_PAGE)) {
+        size_t npages = (fbr->stack_size + PAGE_SIZE - 1) / PAGE_SIZE;
+        if (fbr->state & FIBER_FS_HAS_LO_GUARD_PAGE) {
+            ++npages;
+            protect_page(fbr->alloc_stack, true);
+        }
+
+        if (fbr->state & FIBER_FS_HAS_HI_GUARD_PAGE) {
+            protect_page((char *) fbr->alloc_stack + npages * PAGE_SIZE, true);
+        }
+
+        free_pages(fbr->alloc_stack);
+    } else {
+        free(fbr->alloc_stack);
     }
 
     fbr->stack = NULL;
     fbr->stack_size = 0;
     fbr->regs.sp = NULL;
-
-#if HU_OS_WINDOWS_P
-    if (aligned_free)
-        _aligned_free(fbr->alloc_stack);
-    else
-        free(fbr->alloc_stack);
-#else
-    free(fbr->alloc_stack);
-#endif
     fbr->alloc_stack = NULL;
 }
 

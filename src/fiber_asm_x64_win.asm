@@ -1,4 +1,4 @@
-.code
+.CODE
 
 fiber_align_check_failed PROTO C
 

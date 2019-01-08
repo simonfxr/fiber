@@ -41,10 +41,12 @@ fiber_asm_invoke:
   mov rcx, [rsp]
   sub rsp, 32             // shadow space
 
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
   test esp, 0xF
   jz 1f
   jmp fiber_align_check_failed
 1:
+#endif
 
   call rdx
   mov rsp, [rsp + 40]
@@ -62,11 +64,12 @@ fiber_asm_exec_on_stack:  // stack_ptr, void (*)(void *), void * -> void
   push rax
   sub rsp, 32             // shadow space
 
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
   test esp, 0xF
   jz 1f
   jmp fiber_align_check_failed
 1:
-
+#endif
   mov rcx, r8
   call rdx
   mov rsp, [rsp + 32]
