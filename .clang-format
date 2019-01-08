@@ -1,0 +1,28 @@
+BasedOnStyle: Mozilla
+AccessModifierOffset: -4
+IndentWidth: 4
+BreakConstructorInitializersBeforeComma: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+IndentCaseLabels: false
+SpaceAfterCStyleCast: true
+PointerAlignment: Right
+AlignEscapedNewlines: Right
+CompactNamespaces: false
+FixNamespaceComments: true
+BreakBeforeBraces: Custom
+BraceWrapping:   
+  AfterClass:      true
+  AfterControlStatement: false
+  AfterEnum:       true
+  AfterFunction:   true
+  AfterNamespace:  false
+  AfterObjCDeclaration: false
+  AfterStruct:     true
+  AfterUnion:      true
+  AfterExternBlock: false
+  BeforeCatch:     false
+  BeforeElse:      false
+  IndentBraces:    false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: true

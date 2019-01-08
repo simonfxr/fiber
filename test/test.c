@@ -145,11 +145,11 @@ put_str(const char *str)
     fiber_exec_on(thread_fiber(the_thread),
                   &the_thread->sched->main_thread.fiber,
                   run_put_str,
-                  &str);
+                  (void *) &str);
 }
 
 static void
-thread1()
+thread1(void)
 {
     for (;;) {
         int x, y;
@@ -159,7 +159,7 @@ thread1()
 }
 
 static void
-thread2()
+thread2(void)
 {
     for (;;) {
         put_str("thread2 running");
@@ -168,7 +168,7 @@ thread2()
 }
 
 static void
-thread3()
+thread3(void)
 {
     int rounds = 10;
     while (rounds-- > 0) {

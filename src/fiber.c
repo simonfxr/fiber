@@ -6,7 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if HU_OS_POSIX_P
 #include <sys/mman.h>
+#elif HU_OS_WINDOWS_P
+#include <Windows.h>
+#endif
 
 #ifdef FIBER_TARGET_32_CDECL
 #define STACK_ALIGNMENT ((uintptr_t) 16)
@@ -16,6 +20,8 @@
 #define STACK_ALIGNMENT ((uintptr_t) 8)
 #elif defined(FIBER_TARGET_64_AARCH)
 #define STACK_ALIGNMENT((uintptr_t) 16)
+#elif defined(FIBER_TARGET_64_WIN)
+#define STACK_ALIGNMENT ((uintptr_t) 16)
 #else
 #error "FIBER_TARGET_* not defined"
 #endif
@@ -99,6 +105,7 @@ fiber_alloc(Fiber *fbr,
     } else {
         size_t npages = (size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
         size_t byte_size = npages * PAGE_SIZE;
+#if HU_OS_POSIX_P
         if (posix_memalign(&fbr->alloc_stack, PAGE_SIZE, byte_size))
             return false;
 
@@ -110,6 +117,24 @@ fiber_alloc(Fiber *fbr,
                      PROT_NONE) == -1)
             goto fail;
 
+#elif HU_OS_WINDOWS_P
+        fbr->alloc_stack = _aligned_malloc(byte_size, PAGE_SIZE);
+        if (!fbr->alloc_stack)
+            return false;
+
+        DWORD old_protect;
+        if (!VirtualProtect(
+              fbr->alloc_stack, PAGE_SIZE, PAGE_NOACCESS, &old_protect))
+            goto fail;
+
+        if (!VirtualProtect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
+                            PAGE_SIZE,
+                            PAGE_NOACCESS,
+                            &old_protect))
+            goto fail;
+#else
+#error "BUG: platform not properly handled"
+#endif
         fbr->stack = fbr->alloc_stack + PAGE_SIZE;
     }
 
@@ -133,12 +158,25 @@ fiber_destroy(Fiber *fbr)
 
     if (fbr->state & FIBER_FS_HAS_GUARD_PAGES) {
         size_t npages = (fbr->stack_size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
+#if HU_OS_POSIX_P
         mprotect(fbr->alloc_stack, PAGE_SIZE, PROT_READ | PROT_WRITE);
         mprotect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
                  PAGE_SIZE,
                  PROT_READ | PROT_WRITE);
+#elif HU_OS_WINDOWS_P
+        DWORD old_protect;
+        VirtualProtect(
+          fbr->alloc_stack, PAGE_SIZE, PAGE_READWRITE, &old_protect);
+        VirtualProtect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
+                       PAGE_SIZE,
+                       PAGE_READWRITE,
+                       &old_protect);
+#endif
     }
 
+    fbr->stack = NULL;
+    fbr->stack_size = 0;
+    fbr->regs.sp = NULL;
     free(fbr->alloc_stack);
 }
 

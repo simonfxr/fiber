@@ -108,6 +108,20 @@ typedef struct
     uint64_t v14;
     uint64_t v15;
 } Regs;
+#elif HU_OS_WINDOWS_P && HU_BITS_64_P && HU_MACH_X86_P
+#define FIBER_TARGET_64_WIN 1
+typedef struct
+{
+    void *sp;
+    void *rbx;
+    void *rbp;
+    void *rdi;
+    void *rsi;
+    void *r12;
+    void *r13;
+    void *r14;
+    void *r15;
+} Regs;
 #else
 #error "fiber: system/architecture target not supported"
 #endif
