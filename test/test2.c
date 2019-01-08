@@ -73,6 +73,7 @@ gen_new(size_t stack_size,
 
     fiber_alloc(&gen->fiber, stack_size, gen_finish, gen, true);
 
+    gen->closing = false;
     gen->state = GenActive;
     value_reset(&gen->ret);
     gen->caller = NULL;
@@ -143,9 +144,8 @@ gen_next(Fiber *caller, Generator *gen, Value *value)
 static void
 gen_close(Fiber *caller, Generator *gen)
 {
-    gen->closing = 1;
+    gen->closing = true;
     Value value;
-    value.ptr = 0;
     gen_next(caller, gen, &value);
 }
 
@@ -170,7 +170,7 @@ fibs_gen(GeneratorArgs *gen)
         val.u64 = f1;
         if (!gen_yield(gen->gen, &val))
             break;
-        int t = f0;
+        uint64_t t = f0;
         f0 = f1;
         f1 += t;
     }

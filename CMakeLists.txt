@@ -106,9 +106,9 @@ if(FIBER_STANDALONE_PROJECT)
   target_link_libraries(test0 fiber)
   target_compile_options(test0 PRIVATE ${cflags})
 
-  add_executable(test test/test.c)
-  target_link_libraries(test fiber)
-  target_compile_options(test PRIVATE ${cflags})
+  add_executable(test1 test/test1.c)
+  target_link_libraries(test1 fiber)
+  target_compile_options(test1 PRIVATE ${cflags})
 
   add_executable(test2 test/test2.c)
   target_link_libraries(test2 fiber)

@@ -127,7 +127,8 @@ fiber_alloc(Fiber *fbr,
               fbr->alloc_stack, PAGE_SIZE, PAGE_NOACCESS, &old_protect))
             goto fail;
 
-        if (!VirtualProtect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
+        if (!VirtualProtect((char *) fbr->alloc_stack +
+                              (npages - 1) * PAGE_SIZE,
                             PAGE_SIZE,
                             PAGE_NOACCESS,
                             &old_protect))
@@ -135,7 +136,7 @@ fiber_alloc(Fiber *fbr,
 #else
 #error "BUG: platform not properly handled"
 #endif
-        fbr->stack = fbr->alloc_stack + PAGE_SIZE;
+        fbr->stack = (char *) fbr->alloc_stack + PAGE_SIZE;
     }
 
     fbr->state = FIBER_FS_HAS_GUARD_PAGES;
@@ -143,7 +144,11 @@ fiber_alloc(Fiber *fbr,
     return true;
 
 fail:
+#if HU_OS_WINDOWS_P
+    _aligned_free(fbr->alloc_stack);
+#else
     free(fbr->alloc_stack);
+#endif
     return false;
 }
 
@@ -155,6 +160,9 @@ fiber_destroy(Fiber *fbr)
 
     if (!fbr->alloc_stack)
         return;
+#if HU_OS_WINDOWS_P
+    bool aligned_free = false;
+#endif
 
     if (fbr->state & FIBER_FS_HAS_GUARD_PAGES) {
         size_t npages = (fbr->stack_size + PAGE_SIZE - 1) / PAGE_SIZE + 2;
@@ -164,10 +172,11 @@ fiber_destroy(Fiber *fbr)
                  PAGE_SIZE,
                  PROT_READ | PROT_WRITE);
 #elif HU_OS_WINDOWS_P
+        aligned_free = true;
         DWORD old_protect;
         VirtualProtect(
           fbr->alloc_stack, PAGE_SIZE, PAGE_READWRITE, &old_protect);
-        VirtualProtect(fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
+        VirtualProtect((char *) fbr->alloc_stack + (npages - 1) * PAGE_SIZE,
                        PAGE_SIZE,
                        PAGE_READWRITE,
                        &old_protect);
@@ -177,7 +186,16 @@ fiber_destroy(Fiber *fbr)
     fbr->stack = NULL;
     fbr->stack_size = 0;
     fbr->regs.sp = NULL;
+
+#if HU_OS_WINDOWS_P
+    if (aligned_free)
+        _aligned_free(fbr->alloc_stack);
+    else
+        free(fbr->alloc_stack);
+#else
     free(fbr->alloc_stack);
+#endif
+    fbr->alloc_stack = NULL;
 }
 
 void

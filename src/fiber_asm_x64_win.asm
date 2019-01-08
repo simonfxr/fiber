@@ -1,5 +1,7 @@
 .code
 
+fiber_align_check_failed PROTO C
+
 
 fiber_asm_switch proc
   mov [rcx + 0], rsp
@@ -28,16 +30,17 @@ fiber_asm_switch endp
 
 fiber_asm_invoke proc
   add rsp, 8
-  pop rcx
-  mov rdx, [rsp]
+  pop rdx
+  mov rcx, [rsp]
+  sub rsp, 32
 
   test esp, 0Fh
   jz ok
-  jmp $
+  jmp fiber_align_check_failed
 ok:
 
-  call rcx
-  mov rsp, [rsp + 8]
+  call rdx
+  mov rsp, [rsp + 40]
   ret
 fiber_asm_invoke endp
 
@@ -46,15 +49,16 @@ fiber_asm_exec_on_stack proc
   mov rax, rsp
   mov rsp, rcx
   push rax
+  sub rsp, 32
 
   test esp, 0Fh
   jz ok
-  jmp $
+  jmp fiber_align_check_failed
 ok:
 
   mov rcx, r8
   call rdx
-  mov rsp, [rsp]
+  mov rsp, [rsp + 32]
   ret
 fiber_asm_exec_on_stack endp
 
