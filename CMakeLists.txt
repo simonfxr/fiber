@@ -116,6 +116,8 @@ target_include_directories(fiber PRIVATE src)
 target_link_libraries(fiber PUBLIC header-utils)
 target_compile_definitions(fiber PRIVATE ${defines})
 
+add_library(fiber::fiber ALIAS fiber)
+
 if(cflags)
   target_compile_options(fiber PRIVATE ${cflags})
 endif()
@@ -135,18 +137,18 @@ endif()
 
 if(FIBER_STANDALONE_PROJECT)
   add_executable(hello test/hello.c)
-  target_link_libraries(hello fiber)
+  target_link_libraries(hello fiber::fiber)
   target_compile_options(hello PRIVATE ${cflags})
 
   add_executable(test0 test/test0.c)
-  target_link_libraries(test0 fiber)
+  target_link_libraries(test0 fiber::fiber)
   target_compile_options(test0 PRIVATE ${cflags})
 
   add_executable(test1 test/test1.c)
-  target_link_libraries(test1 fiber)
+  target_link_libraries(test1 fiber::fiber)
   target_compile_options(test1 PRIVATE ${cflags})
 
   add_executable(test2 test/test2.c)
-  target_link_libraries(test2 fiber)
+  target_link_libraries(test2 fiber::fiber)
   target_compile_options(test2 PRIVATE ${cflags})
 endif()

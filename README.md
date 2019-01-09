@@ -30,6 +30,23 @@ Tested on the following machines:
 - Interleaving setjmp/longjmp with fiber switching is not allowed
 - Debuggers are confused by the switching of stacks, in particular backtraces only show the frames of the currently active fiber.
 
+## Building
+
+```shell
+git clone https://github.com/simonfxr/fiber
+git submodule update --init
+mkdir build
+cd build
+cmake ..
+make
+```
+
+Or integrate it in your cmake build
+```cmake
+add_subdirectory(path/to/fiber)
+target_link_libraries(your-target fiber::fiber)
+```
+
 ## Example
 
 ```c
