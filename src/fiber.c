@@ -189,8 +189,6 @@ fiber_destroy(Fiber *fbr)
     if (!fbr->alloc_stack)
         return;
 
-    bool aligned_free = false;
-
     if (fbr->state &
         (FIBER_FS_HAS_HI_GUARD_PAGE | FIBER_FS_HAS_LO_GUARD_PAGE)) {
         size_t npages = (fbr->stack_size + PAGE_SIZE - 1) / PAGE_SIZE;

@@ -59,8 +59,8 @@ typedef struct Fiber
 #define FIBER_FLAG_GUARD_LO FIBER_FLAG_CONSTANT(8)
 #define FIBER_FLAG_GUARD_HI FIBER_FLAG_CONSTANT(16)
 
-typedef void (FIBER_CCONV *FiberFunc)(void *);
-typedef void (FIBER_CCONV *FiberCleanupFunc)(Fiber *, void *);
+typedef void(FIBER_CCONV *FiberFunc)(void *);
+typedef void(FIBER_CCONV *FiberCleanupFunc)(Fiber *, void *);
 
 /**
  * initialize a Fiber with a preallocated stack. Stack alignment will be
@@ -212,4 +212,7 @@ fiber_stack_free_size(const Fiber *fiber)
                                 FIBER_CAST(char *, fiber->stack));
 }
 
+#ifdef __cplusplus
+}
+#endif
 #endif
