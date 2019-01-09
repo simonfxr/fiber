@@ -134,6 +134,10 @@ if(FIBER_SHARED)
 endif()
 
 if(FIBER_STANDALONE_PROJECT)
+  add_executable(hello test/hello.c)
+  target_link_libraries(hello fiber)
+  target_compile_options(hello PRIVATE ${cflags})
+
   add_executable(test0 test/test0.c)
   target_link_libraries(test0 fiber)
   target_compile_options(test0 PRIVATE ${cflags})
