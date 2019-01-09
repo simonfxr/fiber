@@ -78,6 +78,12 @@ elseif(WIN32 AND FIBER_X86 AND FIBER_BITS32)
   endif()
 endif()
 
+if(APPLE)
+  list(APPEND defines -DFIBER_MACHO=1)
+elseif(UNIX)
+  list(APPEND defines -DFIBER_ELF=1)
+endif()
+
 if(NOT asm_sources)
   message(ERROR "fiber: combination of system and architecture not supported!")
 endif()

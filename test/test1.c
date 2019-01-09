@@ -4,7 +4,7 @@
 
 #include <fiber/fiber.h>
 
-#define STACK_SIZE ((size_t)4096)
+#define STACK_SIZE ((size_t) 4096)
 
 typedef struct Thread Thread;
 
@@ -96,6 +96,7 @@ thread_exec(void *args0)
 static void
 fiber_cleanup(Fiber *fiber, void *arg)
 {
+    (void) fiber;
     Thread *th = arg;
     thread_end(th);
 }
@@ -152,7 +153,6 @@ static void
 thread1(void)
 {
     for (;;) {
-        int x, y;
         put_str("thread1 running");
         yield();
     }

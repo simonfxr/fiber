@@ -144,9 +144,11 @@ gen_next(Fiber *caller, Generator *gen, Value *value)
 static void
 gen_close(Fiber *caller, Generator *gen)
 {
-    gen->closing = true;
-    Value value;
-    gen_next(caller, gen, &value);
+    if (gen->state == GenActive) {
+        gen->closing = true;
+        Value value;
+        gen_next(caller, gen, &value);
+    }
 }
 
 static void
@@ -220,5 +222,9 @@ main(void)
     while (gen_next(&main_fbr, fibs, &value))
         printf("value: %" PRIu64 "\n", value.u64);
     fprintf(stderr, "generator empty\n");
+
+    gen_destroy(&main_fbr, fibs);
+    gen_destroy(&main_fbr, allFibs);
+
     return 0;
 }
