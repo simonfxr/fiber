@@ -1,3 +1,10 @@
+
+#ifdef FIBER_STACK_ALIGNMENT
+#define STACK_ALIGNMENT FIBER_STACK_ALIGNMENT
+#else
+#define STACK_ALIGNMENT 16
+#endif
+
   .intel_syntax noprefix
   .text
 
@@ -37,10 +44,8 @@ fiber_asm_invoke:
   mov eax, [esp + 8]
   mov [esp], eax
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
-  test esp, 0xF
-  jz 1f
-  jmp fiber_align_check_failed
-1:
+  test esp, STACK_ALIGNMENT - 1
+  jnz fiber_align_check_failed
 #endif
   call edx
   mov esp, [esp + 12]
@@ -56,10 +61,8 @@ fiber_asm_exec_on_stack:
   sub esp, 4
   push edx
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
-  test esp, 0xF
-  jz 1f
-  jmp fiber_align_check_failed
-1:
+  test esp, STACK_ALIGNMENT - 1
+  jnz fiber_align_check_failed
 #endif
   call ecx
   add esp, 8

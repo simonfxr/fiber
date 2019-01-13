@@ -16,6 +16,9 @@
 
 
 GLOBAL(fiber_asm_switch):           // Regs *from, Regs *to -> void
+  mov rax, [rsi]
+  mov rcx, [rax]
+
   mov [rdi + 0], rsp
   mov [rdi + 8], rbp
   mov [rdi + 16], rbx
@@ -24,7 +27,7 @@ GLOBAL(fiber_asm_switch):           // Regs *from, Regs *to -> void
   mov [rdi + 40], r14
   mov [rdi + 48], r15
 
-  mov rsp, [rsi + 0]
+  lea rsp, [rax + 8]
   mov rbp, [rsi + 8]
   mov rbx, [rsi + 16]
   mov r12, [rsi + 24]
@@ -32,7 +35,7 @@ GLOBAL(fiber_asm_switch):           // Regs *from, Regs *to -> void
   mov r14, [rsi + 40]
   mov r15, [rsi + 48]
 
-  ret
+  jmp rcx
 END_GLOBAL(fiber_asm_switch)
 
 
@@ -43,9 +46,7 @@ GLOBAL(fiber_asm_invoke):
 
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
   test esp, 0xF
-  jz 1f
-  jmp ENTRY(fiber_align_check_failed)
-1:
+  jnz ENTRY(fiber_align_check_failed)
 #endif
   call rsi
   mov rsp, [rsp + 8]
@@ -54,17 +55,17 @@ END_GLOBAL(fiber_asm_invoke)
 
 
 GLOBAL(fiber_asm_exec_on_stack):  // stack_ptr, void (*)(void *), void * -> void
-  mov rax, rsp
-  mov rsp, rdi
-  push rax
+  push rbp
+  mov rbp, rsp
+  lea rsp, [rdi - 8]
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
   test esp, 0xF
-  jz 1f
-  jmp ENTRY(fiber_align_check_failed)
-1:
+  jnz ENTRY(fiber_align_check_failed)
 #endif
   mov rdi, rdx
   call rsi
-  mov rsp, [rsp]          // load old stack_ptr
+  mov rax, rbp
+  mov rsp, rbp
+  pop rbp
   ret
 END_GLOBAL(fiber_asm_exec_on_stack)

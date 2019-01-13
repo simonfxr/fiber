@@ -12,6 +12,7 @@
 #include <Windows.h>
 #endif
 
+#ifndef FIBER_STACK_ALIGNMENT
 #ifdef FIBER_TARGET_32_CDECL
 #define STACK_ALIGNMENT ((uintptr_t) 16)
 #elif defined(FIBER_TARGET_64_SYSV)
@@ -26,6 +27,9 @@
 #define STACK_ALIGNMENT ((uintptr_t) 4)
 #else
 #error "FIBER_TARGET_* not defined"
+#endif
+#else
+#define STACK_ALIGNMENT ((size_t) FIBER_STACK_ALIGNMENT)
 #endif
 
 #define WORD_SIZE (sizeof(void *))

@@ -1,0 +1,6 @@
+fiber_entry()
+in main()
+some string
+some other string
+again fiber_entry()
+Pushed onto toplevel fiber

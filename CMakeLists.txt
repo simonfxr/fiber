@@ -19,22 +19,11 @@ set(FIBER_ASM_CHECK_ALIGNMENT True CACHE BOOL "add extra stack alignment checks 
 
 set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
 
-set(cflags)
-set(defines)
-set(ldflags)
-set(asm_lang "ASM")
-
-if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID MATCHES "GCC")
-  list(APPEND cflags -Wall -Wextra)
-endif()
-
-if(FIBER_ASM_CHECK_ALIGNMENT)
-  list(APPEND defines "-DFIBER_ASM_CHECK_ALIGNMENT=1")
-endif()
-
 message(STATUS CMAKE_SYSTEM_PROCESSOR="${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
 message(STATUS CMAKE_C_SIZEOF_DATA_PTR="${CMAKE_C_SIZEOF_DATA_PTR}")
+message(STATUS CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
+message(STATUS CMAKE_SYSTEM_NAME="${CMAKE_SYSTEM_NAME}")
 
 if(FIBER_M32 OR CMAKE_C_SIZEOF_DATA_PTR STREQUAL 4)
   set(FIBER_BITS32 True)
@@ -50,6 +39,32 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|^arm")
   set(FIBER_ARM True)
 else()
   message(ERROR "fiber: architecture not supported: CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+set(cflags)
+set(priv_cflags)
+set(defines)
+set(ldflags)
+set(asm_lang "ASM")
+
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND FIBER_BITS32)
+  list(APPEND defines -DFIBER_STACK_ALIGNMENT=4)
+endif()
+
+if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID MATCHES "GNU")
+  list(APPEND priv_cflags -Wall -Wextra)
+  if(FIBER_STANDALONE_PROJECT)
+    if(FIBER_X86 AND NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+      list(APPEND cflags "-mfpmath=sse")
+    endif()
+    list(APPEND cflags  "-ffp-contract=off")
+  endif()
+endif()
+
+string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type)
+
+if(FIBER_ASM_CHECK_ALIGNMENT)
+  list(APPEND defines "-DFIBER_ASM_CHECK_ALIGNMENT=1")
 endif()
 
 set(asm_sources)
@@ -99,7 +114,7 @@ if(NOT CMAKE_${asm_lang}_COMPILER_LOADED)
   message(ERROR "no compatible assembler found")
 endif()
 
-if(FIBER_STANDALONE_PROJECT)
+if(NOT TARGET header-utils::header-utils)
   add_subdirectory(deps/cxx-header-utils)
 endif()
 
@@ -113,14 +128,12 @@ endif()
 add_library(fiber ${fiber_lib_mode} src/fiber.c ${asm_sources})
 target_include_directories(fiber PUBLIC include)
 target_include_directories(fiber PRIVATE src)
-target_link_libraries(fiber PUBLIC header-utils)
+target_link_libraries(fiber PUBLIC header-utils::header-utils)
 target_compile_definitions(fiber PRIVATE ${defines})
 
 add_library(fiber::fiber ALIAS fiber)
-
-if(cflags)
-  target_compile_options(fiber PRIVATE ${cflags})
-endif()
+target_compile_options(fiber PUBLIC ${cflags})
+target_compile_options(fiber PRIVATE ${priv_cflags})
 
 if(ldflags)
   if(COMMAND target_link_options)
@@ -140,15 +153,19 @@ if(FIBER_STANDALONE_PROJECT)
   target_link_libraries(hello fiber::fiber)
   target_compile_options(hello PRIVATE ${cflags})
 
-  add_executable(test0 test/test0.c)
-  target_link_libraries(test0 fiber::fiber)
-  target_compile_options(test0 PRIVATE ${cflags})
+  add_executable(test_basic test/basic.c)
+  target_link_libraries(test_basic fiber::fiber)
+  target_compile_options(test_basic PRIVATE ${cflags})
 
-  add_executable(test1 test/test1.c)
-  target_link_libraries(test1 fiber::fiber)
-  target_compile_options(test1 PRIVATE ${cflags})
+  add_executable(test_coop test/coop.c)
+  target_link_libraries(test_coop fiber::fiber)
+  target_compile_options(test_coop PRIVATE ${cflags})
 
-  add_executable(test2 test/test2.c)
-  target_link_libraries(test2 fiber::fiber)
-  target_compile_options(test2 PRIVATE ${cflags})
+  add_executable(test_generators test/generators.c)
+  target_link_libraries(test_generators fiber::fiber)
+  target_compile_options(test_generators PRIVATE ${cflags})
+
+  add_executable(test_fp_stress test/fp_stress.c)
+  target_link_libraries(test_fp_stress fiber::fiber)
+  target_compile_options(test_fp_stress PRIVATE ${cflags})
 endif()

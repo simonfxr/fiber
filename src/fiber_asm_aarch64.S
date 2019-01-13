@@ -40,8 +40,8 @@ fiber_asm_switch:
   ldp d14, d15, [x1]
 
   ldp x0, x30, [x2], 16
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
   mov sp, x2
+#if FIBER_ASM_CHECK_ALIGNMENT
   tst x2, 0xF
   beq 1f
   b fiber_align_check_failed

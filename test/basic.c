@@ -3,12 +3,14 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define STACK_SIZE ((size_t) 4096 * 4)
 
 static void
 fiber_cleanup(Fiber *fiber, void *args)
 {
+    (void) fiber;
     (void) args;
     assert(0 && "fiber_cleanup should not be called");
     abort();
@@ -43,6 +45,11 @@ fiber_entry(void *argsp)
     put_str(args->self, args->caller, "some other string");
 
     puts("again fiber_entry()");
+    char *msg;
+    size_t sz = 64 * 1024;
+    fiber_reserve_return(args->caller, run_put_str, (void **) &msg, sz);
+    memset(msg, 0, sz);
+    strcpy(msg, "Pushed onto toplevel fiber");
     fiber_switch(args->self, args->caller);
 }
 
@@ -52,7 +59,11 @@ main()
     Fiber toplevel;
     fiber_init_toplevel(&toplevel);
     Fiber fiber;
-    fiber_alloc(&fiber, STACK_SIZE, fiber_cleanup, NULL, FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI);
+    fiber_alloc(&fiber,
+                STACK_SIZE,
+                fiber_cleanup,
+                NULL,
+                FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI);
     FiberArgs *args;
     fiber_reserve_return(&fiber, fiber_entry, (void **) &args, sizeof *args);
     args->self = &fiber;
