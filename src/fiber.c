@@ -241,19 +241,38 @@ fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s)
     memcpy(args_dest, args, s);
 }
 
-HU_NOINLINE
-static void probe_stack(volatile char *sp, size_t sz) {
+#if hu_has_attribute(weak)
+#define HAVE_probe_stack_weak_dummy
+__attribute__((weak)) void
+_probe_stack_weak_dummy(volatile char *sp, size_t sz);
 
+__attribute__((weak)) void
+_probe_stack_weak_dummy(volatile char *sp, size_t sz)
+{
+    (void) sp;
+    (void) sz;
+}
+#endif
+
+HU_NOINLINE
+static void
+probe_stack(volatile char *sp0, size_t sz)
+{
+    volatile char *sp = sp0;
 #if HU_COMP_GNULIKE_P
     __asm__ __volatile__("" : : "r"(sp) : "memory");
 #endif
 
     size_t i = 0;
     while (i < sz) {
-        *(volatile uintptr_t*)sp |= (uintptr_t) 0;
+        *(volatile uintptr_t *) sp |= (uintptr_t) 0;
         i += PAGE_SIZE;
         sp -= PAGE_SIZE;
     }
+
+#ifdef HAVE_probe_stack_weak_dummy
+    _probe_stack_weak_dummy(sp0, sz);
+#endif
 }
 
 void
@@ -263,7 +282,7 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     assert(!fiber_is_executing(fbr));
 
     char *sp = fbr->regs.sp;
-    sp = (char *) STACK_ALIGN(sp + WORD_SIZE);
+    sp = (char *) STACK_ALIGN(sp - WORD_SIZE);
     s = (s + STACK_ALIGNMENT - 1) & ~((size_t) STACK_ALIGNMENT - 1);
     assert(IS_STACK_ALIGNED(sp) && "1");
 

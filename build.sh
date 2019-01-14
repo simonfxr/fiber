@@ -135,8 +135,8 @@ cmd_run() {
     mkdir -p build || return $?
     for bc in "${build_configs[@]}"; do
         local d="build/$bc"
+        echo "************** $bc **************"
         for bin in test_basic test_coop test_generators test_fp_stress; do
-            echo "************** $bc **************"
             "${d}/$bin" &> "${d}/${bin}.out" ||
                 echo "${d}/$bin exited non zero: $?" >&2
         done
