@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define STACK_SIZE ((size_t) 4096 * 4)
+#define STACK_SIZE ((size_t) 1024 * 16)
 
 static void
 fiber_cleanup(Fiber *fiber, void *args)

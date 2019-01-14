@@ -89,6 +89,7 @@ typedef struct
     void *r13;
     void *r14;
     void *r15;
+    char xmm[168];
 } FiberRegs;
 #elif HU_OS_WINDOWS_P && HU_BITS_32_P && HU_MACH_X86_P
 #define FIBER_TARGET_32_WIN 1

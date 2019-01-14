@@ -1,3 +1,4 @@
+
 cmake_minimum_required(VERSION 3.10)
 
 set(FIBER_STANDALONE_PROJECT FALSE)
@@ -93,6 +94,11 @@ elseif(WIN32 AND FIBER_X86 AND FIBER_BITS32)
   endif()
 endif()
 
+if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+  # make sure it gets passed to the assembler
+  list(APPEND priv_cflags "/nologo")
+endif()
+
 if(APPLE)
   list(APPEND defines -DFIBER_MACHO=1)
 elseif(UNIX)
@@ -149,23 +155,19 @@ if(FIBER_SHARED)
 endif()
 
 if(FIBER_STANDALONE_PROJECT)
-  add_executable(hello test/hello.c)
-  target_link_libraries(hello fiber::fiber)
-  target_compile_options(hello PRIVATE ${cflags})
 
-  add_executable(test_basic test/basic.c)
-  target_link_libraries(test_basic fiber::fiber)
-  target_compile_options(test_basic PRIVATE ${cflags})
+  macro(add_test_exec tgt)
+    add_executable(${tgt} ${ARGN})
+    target_link_libraries(${tgt} fiber::fiber)
+    target_compile_options(${tgt} PRIVATE ${cflags})
+    if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+      target_compile_definitions(${tgt} PRIVATE _CRT_SECURE_NO_WARNINGS=1)
+    endif()
+  endmacro()
 
-  add_executable(test_coop test/coop.c)
-  target_link_libraries(test_coop fiber::fiber)
-  target_compile_options(test_coop PRIVATE ${cflags})
-
-  add_executable(test_generators test/generators.c)
-  target_link_libraries(test_generators fiber::fiber)
-  target_compile_options(test_generators PRIVATE ${cflags})
-
-  add_executable(test_fp_stress test/fp_stress.c)
-  target_link_libraries(test_fp_stress fiber::fiber)
-  target_compile_options(test_fp_stress PRIVATE ${cflags})
+  add_test_exec(hello test/hello.c)
+  add_test_exec(test_basic test/basic.c)
+  add_test_exec(test_coop test/coop.c)
+  add_test_exec(test_generators test/generators.c)
+  add_test_exec(test_fp_stress test/fp_stress.c)
 endif()

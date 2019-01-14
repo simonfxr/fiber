@@ -145,6 +145,9 @@ setup_fiber(Fiber *caller, Fiber *fiber, Args **args, int id)
 int
 main()
 {
+#if HU_OS_WINDOWS_P && defined(_TWO_DIGIT_EXPONENT)
+    _set_output_format(_TWO_DIGIT_EXPONENT);
+#endif
     Fiber toplevel;
     fiber_init_toplevel(&toplevel);
     Fiber fiber1;

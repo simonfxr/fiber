@@ -241,6 +241,21 @@ fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s)
     memcpy(args_dest, args, s);
 }
 
+HU_NOINLINE
+static void probe_stack(volatile char *sp, size_t sz) {
+
+#if HU_COMP_GNULIKE_P
+    __asm__ __volatile__("" : : "r"(sp) : "memory");
+#endif
+
+    size_t i = 0;
+    while (i < sz) {
+        *(volatile uintptr_t*)sp |= (uintptr_t) 0;
+        i += PAGE_SIZE;
+        sp -= PAGE_SIZE;
+    }
+}
+
 void
 fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
 {
@@ -248,9 +263,12 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     assert(!fiber_is_executing(fbr));
 
     char *sp = fbr->regs.sp;
-    sp = (char *) STACK_ALIGN(sp);
+    sp = (char *) STACK_ALIGN(sp + WORD_SIZE);
     s = (s + STACK_ALIGNMENT - 1) & ~((size_t) STACK_ALIGNMENT - 1);
     assert(IS_STACK_ALIGNED(sp) && "1");
+
+    if (hu_unlikely(s > PAGE_SIZE - 100))
+        probe_stack(sp, s);
 
     sp -= s;
     *args = (void *) sp;
@@ -315,7 +333,7 @@ fiber_guard(void *argsp)
 
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
 void
-fiber_align_check_failed()
+fiber_align_check_failed(void)
 {
 #ifndef NDEBUG
     assert(0 && "ERROR: fiber stack alignment check failed");

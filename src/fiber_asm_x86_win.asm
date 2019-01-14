@@ -1,7 +1,9 @@
 .MODEL flat, C
 .CODE
 
+IFDEF FIBER_ASM_CHECK_ALIGNMENT
 fiber_align_check_failed PROTO C
+ENDIF
 
 PUBLIC fiber_asm_switch
 PUBLIC fiber_asm_invoke
@@ -31,10 +33,11 @@ fiber_asm_invoke PROC
   mov edx, [esp + 4]
   mov eax, [esp + 8]
   mov [esp], eax
+
+IFDEF FIBER_ASM_CHECK_ALIGNMENT
   test esp, 3
-  jz ok
-  jmp fiber_align_check_failed
-ok:
+  jnz fiber_align_check_failed
+ENDIF
   call edx
   mov esp, [esp + 12]
   ret
@@ -49,11 +52,10 @@ fiber_asm_exec_on_stack PROC
   push eax
   sub esp, 4
   push edx
-
+IFDEF FIBER_ASM_CHECK_ALIGNMENT
   test esp, 3
-  jz ok
-  jmp fiber_align_check_failed
-ok:
+  jnz fiber_align_check_failed
+ENDIF
   call ecx
   add esp, 8
   pop esp

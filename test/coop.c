@@ -42,7 +42,7 @@ typedef struct
 static Thread *the_thread;
 
 static bool
-shutting_down()
+shutting_down(void)
 {
     return the_thread->sched->shutdown_signal;
 }
@@ -177,7 +177,7 @@ static int next_worker_id;
 static Message message;
 
 static void
-worker()
+worker(void)
 {
     int my_id = next_worker_id++;
     int work = 13 + ((my_id * 17) % 11);

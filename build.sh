@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
 
-build_types=( debug release )
-
-ccs=( )
-type -P gcc &>/dev/null && ccs+=( gcc )
-type -P clang &>/dev/null && ccs+=( clang )
-
-link_modes=( static shared )
-
 SYS_LINUX=
 SYS_BSD=
+SYS_WINDOWS=
 
 case "$(uname -s)" in
     Linux) SYS_LINUX=1 ;;
     *BSD) SYS_BSD=1 ;;
+    MSYS_NT*) SYS_WINDOWS=1 ;;
 esac
 
 BITS32=
@@ -38,8 +32,17 @@ esac
 native_bits=64
 [[ $BITS32 ]] && native_bits=32
 
+build_types=( debug release )
+
+ccs=( )
+[[ ! $SYS_WINDOWS ]] && type -P gcc &>/dev/null && ccs+=( gcc )
+[[ ! $SYS_WINDOWS ]] && type -P clang &>/dev/null && ccs+=( clang )
+[[ $SYS_WINDOWS ]] && type -P cl &>/dev/null && ccs+=( cl )
+
+link_modes=( static shared )
+
 compiler_supports_m32() {
-    [[ $BITS32 ]] && return 1
+    [[ $BITS32 || $SYS_WINDOWS ]] && return 1
     local cc="$1" tmp_file
     tmp_file="$(mktemp -t test_m32_XXXXXX.c)"
     bin_file="$(mktemp -t test_m32_XXXXXX.bin)"
@@ -63,7 +66,10 @@ cmake_flags=( )
 add_build_config() {
     local bt="$1" cc="$2" bits="$3" link_mode="$4" check_align="$5"
     local cm_flags=( -DCMAKE_BUILD_TYPE="${bt^^}" -DCMAKE_C_COMPILER="$cc" )
-    [[ $BITS64 && $bits = 32 ]] &&
+
+    [[ $SYS_WINDOWS && $cc = $cl && $link_mode = shared ]] && return
+
+    [[ $BITS64 && $bits = 32 && $cc != "cl" ]] &&
         cm_flags+=( -DFIBER_M32=True )
     if [[ $link_mode = shared ]]; then
         cm_flags+=( -DFIBER_SHARED=True )
@@ -84,6 +90,9 @@ for cc in "${ccs[@]}"; do
     bit_modes=( "$native_bits" )
     compiler_supports_m32 "$cc" && bit_modes+=( 32 )
     for bits in "${bit_modes[@]}"; do
+        if [[ $cc = cl && $bits = 64 ]]; then
+            { cl 2>&1 | grep "x64"; } || bits=32
+        fi
         for bt in "${build_types[@]}"; do
             for link_mode in "${link_modes[@]}"; do
                 for ca in "unchecked" "checked"; do
@@ -102,6 +111,7 @@ cmd_configure() {
         mkdir "build/$bc" || return $?
         (
             cd "build/$bc" || exit $?
+            echo "************** $bc **************"
             local all_flags=( "${flags[@]}" ${cmake_flags["$bc"]} )
             cmake -G Ninja "${all_flags[@]}" ../..
         )
@@ -114,6 +124,7 @@ cmd_build() {
     for bc in "${build_configs[@]}"; do
         (
             cd "build/$bc" || exit $?
+            echo "************** $bc **************"
             cmake --build . "${flags[@]}"
         )
     done
@@ -125,6 +136,7 @@ cmd_run() {
     for bc in "${build_configs[@]}"; do
         local d="build/$bc"
         for bin in test_basic test_coop test_generators test_fp_stress; do
+            echo "************** $bc **************"
             "${d}/$bin" &> "${d}/${bin}.out" ||
                 echo "${d}/$bin exited non zero: $?" >&2
         done
