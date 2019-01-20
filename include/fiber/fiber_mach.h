@@ -1,6 +1,10 @@
 #ifndef FIBER_MACH_H
 #define FIBER_MACH_H
 
+#include <hu/bits.h>
+#include <hu/mach.h>
+#include <hu/os.h>
+
 #ifndef FIBER_H
 #error "include fiber.h before fiber_mach.h"
 #endif

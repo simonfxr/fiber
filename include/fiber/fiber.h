@@ -2,7 +2,6 @@
 #define FIBER_H
 
 #include <hu/macros.h>
-#include <hu/platform.h>
 
 #include <stdbool.h>
 #include <stddef.h>
