@@ -1,8 +1,8 @@
 #ifndef FIBER_MACH_H
 #define FIBER_MACH_H
 
+#include <hu/arch.h>
 #include <hu/bits.h>
-#include <hu/mach.h>
 #include <hu/os.h>
 
 #ifndef FIBER_H
@@ -19,7 +19,7 @@ typedef struct
     void *edi;
     void *esi;
 } FiberRegs;
-#elif HU_BITS_64_P && HU_OS_POSIX_P && HU_MACH_X86_P
+#elif HU_BITS_64_P && HU_OS_POSIX_P && HU_ARCH_X86_P
 #define FIBER_TARGET_64_SYSV 1
 typedef struct
 {
@@ -31,7 +31,7 @@ typedef struct
     void *r14;
     void *r15;
 } FiberRegs;
-#elif HU_BITS_32_P && HU_OS_POSIX_P && HU_MACH_ARM_P
+#elif HU_BITS_32_P && HU_OS_POSIX_P && HU_ARCH_ARM_P
 #define FIBER_TARGET_32_ARM_EABI
 typedef struct
 {
@@ -54,7 +54,7 @@ typedef struct
     uint64_t d14;
     uint64_t d15;
 } FiberRegs;
-#elif HU_BITS_64_P && HU_OS_POSIX_P && HU_MACH_ARM_P
+#elif HU_BITS_64_P && HU_OS_POSIX_P && HU_ARCH_ARM_P
 #define FIBER_TARGET_64_AARCH 1
 typedef struct
 {
@@ -80,7 +80,7 @@ typedef struct
     uint64_t v14;
     uint64_t v15;
 } FiberRegs;
-#elif HU_OS_WINDOWS_P && HU_BITS_64_P && HU_MACH_X86_P
+#elif HU_OS_WINDOWS_P && HU_BITS_64_P && HU_ARCH_X86_P
 #define FIBER_TARGET_64_WIN 1
 typedef struct
 {
@@ -95,7 +95,7 @@ typedef struct
     void *r15;
     char xmm[168];
 } FiberRegs;
-#elif HU_OS_WINDOWS_P && HU_BITS_32_P && HU_MACH_X86_P
+#elif HU_OS_WINDOWS_P && HU_BITS_32_P && HU_ARCH_X86_P
 #define FIBER_TARGET_32_WIN 1
 #define FIBER_CCONV __cdecl
 typedef struct
