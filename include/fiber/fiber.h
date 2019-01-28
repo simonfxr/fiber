@@ -166,19 +166,19 @@ FIBER_API void
 fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args);
 
 static inline bool
-fiber_is_toplevel(Fiber *fiber)
+fiber_is_toplevel(const Fiber *fiber)
 {
     return (fiber->state & FIBER_FS_TOPLEVEL) != 0;
 }
 
 static inline bool
-fiber_is_executing(Fiber *fiber)
+fiber_is_executing(const Fiber *fiber)
 {
     return (fiber->state & FIBER_FS_EXECUTING) != 0;
 }
 
 static inline bool
-fiber_is_alive(Fiber *fiber)
+fiber_is_alive(const Fiber *fiber)
 {
     return (fiber->state & FIBER_FS_ALIVE) != 0;
 }
