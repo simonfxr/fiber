@@ -1,10 +1,9 @@
-
 cmake_minimum_required(VERSION 3.10)
 
 set(FIBER_STANDALONE_PROJECT FALSE)
-if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
   set(FIBER_STANDALONE_PROJECT TRUE)
-endif ()
+endif()
 
 if(FIBER_STANDALONE_PROJECT)
   project(fiber LANGUAGES C)
@@ -16,7 +15,8 @@ endif()
 
 set(FIBER_SHARED "${FIBER_SHARED}" CACHE BOOL "build shared fiber library")
 
-set(FIBER_ASM_CHECK_ALIGNMENT True CACHE BOOL "add extra stack alignment checks to asm functions")
+set(FIBER_ASM_CHECK_ALIGNMENT True
+    CACHE BOOL "add extra stack alignment checks to asm functions")
 
 set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
 
@@ -39,7 +39,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|(^i.86$)")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|^arm")
   set(FIBER_ARM True)
 else()
-  message(ERROR "fiber: architecture not supported: CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
+  message(
+    ERROR
+    "fiber: architecture not supported: CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}"
+    )
 endif()
 
 set(cflags)
@@ -52,13 +55,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND FIBER_BITS32)
   list(APPEND defines -DFIBER_STACK_ALIGNMENT=4)
 endif()
 
-if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID MATCHES "GNU")
+if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU|Intel")
   list(APPEND priv_cflags -Wall -Wextra)
   if(FIBER_STANDALONE_PROJECT)
-    if(FIBER_X86 AND NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    if(FIBER_X86
+       AND NOT
+           CMAKE_SYSTEM_NAME
+           STREQUAL
+           "FreeBSD")
       list(APPEND cflags "-mfpmath=sse")
     endif()
-    list(APPEND cflags  "-ffp-contract=off")
+    list(APPEND cflags "-ffp-contract=off")
   endif()
 endif()
 
@@ -88,7 +95,10 @@ elseif(WIN32 AND FIBER_X86 AND FIBER_BITS32)
   if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
     set(asm_lang "ASM_MASM")
     set(asm_sources src/fiber_asm_x86_win.asm)
-    set_source_files_properties(${asm_sources} PROPERTIES COMPILE_OPTIONS "/safeseh")
+    set_source_files_properties(${asm_sources}
+                                PROPERTIES
+                                COMPILE_OPTIONS
+                                "/safeseh")
   else()
     message(ERROR "compiling fiber under x86 windows 32bit not yet supported")
   endif()

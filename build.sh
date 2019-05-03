@@ -38,11 +38,12 @@ ccs=( )
 [[ ! $SYS_WINDOWS ]] && type -P gcc &>/dev/null && ccs+=( gcc )
 [[ ! $SYS_WINDOWS ]] && type -P clang &>/dev/null && ccs+=( clang )
 [[ $SYS_WINDOWS ]] && type -P cl &>/dev/null && ccs+=( cl )
+type -P icc &>/dev/null && ccs+=( icc )
 
 link_modes=( static shared )
 
 compiler_supports_m32() {
-    [[ $BITS32 || $SYS_WINDOWS ]] && return 1
+    [[ $BITS32 || $SYS_WINDOWS || "$1" = icc ]] && return 1
     local cc="$1" tmp_file
     tmp_file="$(mktemp -t test_m32_XXXXXX.c)"
     bin_file="$(mktemp -t test_m32_XXXXXX.bin)"

@@ -9,7 +9,7 @@
 #error "include fiber.h before fiber_mach.h"
 #endif
 
-#if HU_BITS_32_P && HU_OS_POSIX_P && HU_MACH_X86_P
+#if HU_BITS_32_P && HU_OS_POSIX_P && HU_ARCH_X86_P
 #define FIBER_TARGET_32_CDECL 1
 typedef struct
 {

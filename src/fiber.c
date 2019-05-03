@@ -259,7 +259,7 @@ static void
 probe_stack(volatile char *sp0, size_t sz)
 {
     volatile char *sp = sp0;
-#if HU_COMP_GNULIKE_P
+#if HU_COMP_GNUC_P
     __asm__ __volatile__("" : : "r"(sp) : "memory");
 #endif
 
