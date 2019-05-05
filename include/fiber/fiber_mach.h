@@ -10,7 +10,8 @@
 #endif
 
 #if HU_BITS_32_P && HU_OS_POSIX_P && HU_ARCH_X86_P
-#define FIBER_TARGET_32_CDECL 1
+#define FIBER_TARGET_X86_CDECL 1
+#define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
     void *sp;
@@ -20,7 +21,8 @@ typedef struct
     void *esi;
 } FiberRegs;
 #elif HU_BITS_64_P && HU_OS_POSIX_P && HU_ARCH_X86_P
-#define FIBER_TARGET_64_SYSV 1
+#define FIBER_TARGET_AMD64_SYSV
+#define FIBER_STACK_ALIGNMENT 16
 typedef struct
 {
     void *sp;
@@ -32,7 +34,8 @@ typedef struct
     void *r15;
 } FiberRegs;
 #elif HU_BITS_32_P && HU_OS_POSIX_P && HU_ARCH_ARM_P
-#define FIBER_TARGET_32_ARM_EABI
+#define FIBER_TARGET_ARM32_EABI
+#define FIBER_DEFAULT_STACK_ALIGNMENT 8
 typedef struct
 {
     void *r4;
@@ -55,7 +58,8 @@ typedef struct
     uint64_t d15;
 } FiberRegs;
 #elif HU_BITS_64_P && HU_OS_POSIX_P && HU_ARCH_ARM_P
-#define FIBER_TARGET_64_AARCH 1
+#define FIBER_TARGET_AARCH64_APCS 1
+#define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
     void *sp;
@@ -81,7 +85,8 @@ typedef struct
     uint64_t v15;
 } FiberRegs;
 #elif HU_OS_WINDOWS_P && HU_BITS_64_P && HU_ARCH_X86_P
-#define FIBER_TARGET_64_WIN 1
+#define FIBER_TARGET_AMD64_WIN64 1
+#define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
     void *sp;
@@ -93,11 +98,13 @@ typedef struct
     void *r13;
     void *r14;
     void *r15;
-    char xmm[168];
+    // 10 * 16 bytes, add aditional 8 bytes to make 16byte alignment possible
+    double xmm[21];
 } FiberRegs;
 #elif HU_OS_WINDOWS_P && HU_BITS_32_P && HU_ARCH_X86_P
-#define FIBER_TARGET_32_WIN 1
+#define FIBER_TARGET_X86_WIN32 1
 #define FIBER_CCONV __cdecl
+#define FIBER_DEFAULT_STACK_ALIGNMENT 4
 typedef struct
 {
     void *sp;
@@ -105,6 +112,20 @@ typedef struct
     void *ebp;
     void *esi;
     void *edi;
+} FiberRegs;
+#elif HU_OS_LINUX_P && HU_BITS_64_P && HU_ARCH_RISCV_P
+#define FIBER_TARGET_RISCV64_ELF 1
+#define FIBER_DEFAULT_STACK_ALIGNMENT 16
+#define FIBER_HAVE_LR 1
+#ifndef __riscv_float_abi_double
+#error "this RISCV abi is not supported use -mabi=lp64d"
+#endif
+typedef struct
+{
+    void *sp;
+    void *lr;
+    void *s[12];
+    double fs[12];
 } FiberRegs;
 #else
 #error "fiber: system/architecture target not supported"

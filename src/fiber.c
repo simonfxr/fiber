@@ -12,29 +12,15 @@
 #include <Windows.h>
 #endif
 
-#ifndef FIBER_STACK_ALIGNMENT
-#ifdef FIBER_TARGET_32_CDECL
-#define STACK_ALIGNMENT ((uintptr_t) 16)
-#elif defined(FIBER_TARGET_64_SYSV)
-#define STACK_ALIGNMENT ((uintptr_t) 16)
-#elif defined(FIBER_TARGET_32_ARM_EABI)
-#define STACK_ALIGNMENT ((uintptr_t) 8)
-#elif defined(FIBER_TARGET_64_AARCH)
-#define STACK_ALIGNMENT ((uintptr_t) 16)
-#elif defined(FIBER_TARGET_64_WIN)
-#define STACK_ALIGNMENT ((uintptr_t) 16)
-#elif defined(FIBER_TARGET_32_WIN)
-#define STACK_ALIGNMENT ((uintptr_t) 4)
-#else
-#error "FIBER_TARGET_* not defined"
-#endif
-#else
-#define STACK_ALIGNMENT ((size_t) FIBER_STACK_ALIGNMENT)
-#endif
-
 #define WORD_SIZE (sizeof(void *))
 
 #define UNUSED(a) ((void) (a))
+
+#ifndef FIBER_STACK_ALIGNMENT
+#define STACK_ALIGNMENT ((uintptr_t) FIBER_DEFAULT_STACK_ALIGNMENT)
+#else
+#define STACK_ALIGNMENT ((uintptr_t) FIBER_STACK_ALIGNMENT)
+#endif
 
 #define IS_STACK_ALIGNED(x) (((uintptr_t)(x) & (STACK_ALIGNMENT - 1)) == 0)
 #define STACK_ALIGN(x) ((uintptr_t)(x) & ~(STACK_ALIGNMENT - 1))
@@ -296,24 +282,33 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     sp -= sizeof fbr->regs.sp;
     *(void **) sp = fbr->regs.sp;
 
+#ifdef FIBER_HAVE_LR
+    sp -= sizeof fbr->regs.lr;
+    *(void **) sp = fbr->regs.lr;
+#endif
+
     sp -= sizeof *args;
     *(void **) sp = *args;
 
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = f;
 
+#ifndef FIBER_HAVE_LR
     sp -= WORD_SIZE; // introduced to realign stack to 16 bytes
-
+#endif
     assert(IS_STACK_ALIGNED(sp) && "3");
 
+#ifdef FIBER_HAVE_LR
+    fbr->regs.lr = fiber_asm_invoke;
+#else
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = (FiberFunc) fiber_asm_invoke;
 
-#ifdef FIBER_TARGET_64_AARCH
+#if defined(FIBER_TARGET_AARCH64_APCS)
     sp -= WORD_SIZE;
     assert(IS_STACK_ALIGNED(sp));
 #endif
-
+#endif
     fbr->regs.sp = (void *) sp;
 }
 

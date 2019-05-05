@@ -1,17 +1,21 @@
   .intel_syntax noprefix
   .text
 
+#include <hu/objfmt.h>
+
 #define CONC0(a, b) a ## b
 #define CONC(a, b) CONC0(a, b)
 
-#ifdef FIBER_ELF
+#if HU_OBJFMT_ELF_P
 #define GLOBAL(sym) .global sym; .hidden sym; .type sym, @function; sym
 #define END_GLOBAL(sym) .size sym, .-sym
 #define ENTRY(sym) sym
-#elif defined(FIBER_MACHO)
+#elif HU_OBJFMT_MACHO_P
 #define GLOBAL(sym) .global CONC(_, sym); CONC(_, sym)
 #define END_GLOBAL(sym)
 #define ENTRY(sym) CONC(_, sym)
+#else
+#error "HU_OBJFMT_*_P neither ELF nor MACHO"
 #endif
 
 

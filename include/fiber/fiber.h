@@ -41,13 +41,12 @@ typedef struct Fiber
 
 #ifdef __cplusplus
 #define FIBER_CAST(T, x) static_cast<T>(x)
-#define FIBER_STATE_CONSTANT(x) static_cast<::FiberState>(x)
-#define FIBER_FLAG_CONSTANT(x) static_cast<::FiberFlags>(x)
 #else
 #define FIBER_CAST(T, x) ((T) x)
-#define FIBER_STATE_CONSTANT(x) ((FiberState) x)
-#define FIBER_FLAG_CONSTANT(x) ((FiberFlags) x)
 #endif
+
+#define FIBER_STATE_CONSTANT(x) FIBER_CAST(FiberState, x)
+#define FIBER_FLAG_CONSTANT(x) FIBER_CAST(FiberFlags, x)
 
 #define FIBER_FS_EXECUTING FIBER_STATE_CONSTANT(1)
 #define FIBER_FS_TOPLEVEL FIBER_STATE_CONSTANT(2)

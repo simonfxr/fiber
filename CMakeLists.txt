@@ -38,6 +38,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|(^i.86$)")
   set(FIBER_X86 True)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|^arm")
   set(FIBER_ARM True)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv")
+  set(FIBER_RISCV True)
 else()
   message(
     ERROR
@@ -77,31 +79,36 @@ endif()
 
 set(asm_sources)
 if(UNIX AND FIBER_X86 AND FIBER_BITS64)
-  set(asm_sources src/fiber_asm_x64_sysv.S)
+  set(asm_sources src/fiber_asm_amd64_sysv.S)
 elseif(UNIX AND FIBER_X86 AND FIBER_BITS32)
   set(asm_sources src/fiber_asm_x86_cdecl.S)
 elseif(UNIX AND FIBER_ARM AND FIBER_BITS64)
-  set(asm_sources src/fiber_asm_aarch64.S)
+  set(asm_sources src/fiber_asm_aarch64_apcs.S)
 elseif(UNIX AND FIBER_ARM AND FIBER_BITS32)
-  set(asm_sources src/fiber_asm_arm_elf.S)
+  set(asm_sources src/fiber_asm_arm32_eabi.S)
 elseif(WIN32 AND FIBER_X86 AND FIBER_BITS64)
   if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
     set(asm_lang "ASM_MASM")
-    set(asm_sources src/fiber_asm_x64_win.asm)
+    set(asm_sources src/fiber_asm_amd64_win64.asm)
   elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU|Intel")
-    set(asm_sources src/fiber_asm_x64_win.S)
+    set(asm_sources src/fiber_asm_amd64_win64.S)
   endif()
 elseif(WIN32 AND FIBER_X86 AND FIBER_BITS32)
   if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
     set(asm_lang "ASM_MASM")
-    set(asm_sources src/fiber_asm_x86_win.asm)
+    set(asm_sources src/fiber_asm_x86_win32.asm)
     set_source_files_properties(${asm_sources}
                                 PROPERTIES
                                 COMPILE_OPTIONS
                                 "/safeseh")
   else()
-    message(ERROR "compiling fiber under x86 windows 32bit not yet supported")
+    message(
+      ERROR
+      "compiling fiber under X86 WIN32 only supported when using MSVC toolchain"
+      )
   endif()
+elseif(UNIX AND FIBER_RISCV AND FIBER_BITS64)
+  set(asm_sources src/fiber_asm_riscv64_elf.S)
 endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
@@ -109,14 +116,8 @@ if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
   list(APPEND priv_cflags "/nologo")
 endif()
 
-if(APPLE)
-  list(APPEND defines -DFIBER_MACHO=1)
-elseif(UNIX)
-  list(APPEND defines -DFIBER_ELF=1)
-endif()
-
 if(NOT asm_sources)
-  message(ERROR "fiber: combination of system and architecture not supported!")
+  message(ERROR "fiber: this platform is not supported")
 endif()
 
 if(FIBER_M32)
