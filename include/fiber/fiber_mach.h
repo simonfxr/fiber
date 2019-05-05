@@ -60,29 +60,14 @@ typedef struct
 #elif HU_BITS_64_P && HU_OS_POSIX_P && HU_ARCH_ARM_P
 #define FIBER_TARGET_AARCH64_APCS 1
 #define FIBER_DEFAULT_STACK_ALIGNMENT 16
+#define FIBER_HAVE_LR 1
 typedef struct
 {
     void *sp;
-    void *r19;
-    void *r20;
-    void *r21;
-    void *r22;
-    void *r23;
-    void *r24;
-    void *r25;
-    void *r26;
-    void *r27;
-    void *r28;
-    void *r29;
-    // only low 64 bits have to be preserved
-    uint64_t v8;
-    uint64_t v9;
-    uint64_t v10;
-    uint64_t v11;
-    uint64_t v12;
-    uint64_t v13;
-    uint64_t v14;
-    uint64_t v15;
+    void *lr;    /* r30 */
+    void *fp;    /* r29 */
+    void *r[10]; /* r19 - r28 */
+    double d[8]; /* d8 - d15 */
 } FiberRegs;
 #elif HU_OS_WINDOWS_P && HU_BITS_64_P && HU_ARCH_X86_P
 #define FIBER_TARGET_AMD64_WIN64 1
@@ -98,7 +83,7 @@ typedef struct
     void *r13;
     void *r14;
     void *r15;
-    // 10 * 16 bytes, add aditional 8 bytes to make 16byte alignment possible
+    /* 10 * 16 bytes, add aditional 8 bytes to make 16byte alignment possible */
     double xmm[21];
 } FiberRegs;
 #elif HU_OS_WINDOWS_P && HU_BITS_32_P && HU_ARCH_X86_P

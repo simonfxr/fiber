@@ -1,93 +1,79 @@
+  .altmacro
   .arch armv8-a
   .text
 
-  .global fiber_asm_switch
-  .hidden fiber_asm_switch
-  .type   fiber_asm_switch, %function
+#define FUNC(sym) .align 4; .global sym; .hidden sym; .type sym, @function; sym
+#define END_FUNC(sym) .size sym, .-sym
 
-  .global fiber_asm_invoke
-  .hidden fiber_asm_invoke
-  .type   fiber_asm_invoke, %function
+  .macro check_stack_alignment_nomove reg
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
+    tst \reg, 0xF
+    bne align_check_failed
+#endif
+  .endm
 
-  .global fiber_asm_exec_on_stack
-  .hidden fiber_asm_exec_on_stack
-  .type   fiber_asm_exec_on_stack, %function
+  .macro check_stack_alignment_move reg
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
+    mov \reg, sp
+    check_stack_alignment_nomove \reg
+#endif
+  .endm
 
-  .align 4
-fiber_asm_switch:
-  stp xzr, x30, [sp, -16]!
+FUNC(fiber_asm_switch):
   mov x3, sp
-  stp x3, x19, [x0], 16
-  stp x20, x21, [x0], 16
-  stp x22, x23, [x0], 16
-  stp x24, x25, [x0], 16
-  stp x26, x27, [x0], 16
-  stp x28, x29, [x0], 16
+  str x3, [x0], 8
+  ldr x3, [x1], 8
+  mov sp, x3
+
+  stp x30, x29, [x0], 16
+  ldp x30, x29, [x1], 16
+  stp x19, x20, [x0], 16
+  ldp x19, x20, [x1], 16
+  stp x21, x22, [x0], 16
+  ldp x21, x22, [x1], 16
+  stp x23, x24, [x0], 16
+  ldp x23, x24, [x1], 16
+  stp x25, x26, [x0], 16
+  ldp x25, x26, [x1], 16
+  stp x27, x28, [x0], 16
+  ldp x27, x28, [x1], 16
+
   stp d8, d9, [x0], 16
-  stp d10, d11, [x0], 16
-  stp d12, d13, [x0], 16
-  stp d14, d15, [x0]
-
-  ldp x2, x19, [x1], 16
-  ldp x20, x21, [x1], 16
-  ldp x22, x23, [x1], 16
-  ldp x24, x25, [x1], 16
-  ldp x26, x27, [x1], 16
-  ldp x28, x29, [x1], 16
   ldp d8, d9, [x1], 16
+  stp d10, d11, [x0], 16
   ldp d10, d11, [x1], 16
+  stp d12, d13, [x0], 16
   ldp d12, d13, [x1], 16
-  ldp d14, d15, [x1]
+  stp d14, d15, [x0], 16
+  ldp d14, d15, [x1], 16
 
-  ldp x0, x30, [x2], 16
-  mov sp, x2
-#if FIBER_ASM_CHECK_ALIGNMENT
-  tst x2, 0xF
-  beq 1f
-  b fiber_align_check_failed
-1:
-#endif
+  check_stack_alignment_nomove x3
   ret
-  .size fiber_asm_switch, .-fiber_asm_switch
+END_FUNC(fiber_asm_switch)
 
-  .align 4
-fiber_asm_invoke:
-  ldp x2, x1, [sp], 16
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  mov x2, sp
-  tst x2, 0xF
-  beq 1f
-  b fiber_align_check_failed
-1:
-#endif
-  ldr x0, [sp]
+FUNC(fiber_asm_invoke):
+  ldp x1, x0, [sp], 16
+  check_stack_alignment_move x2
   blr x1
-  ldp x0, x1, [sp], 16
+  ldp x30, x1, [sp], 16
   mov sp, x1
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  tst x1, 0xF
-  beq 1f
-  b fiber_align_check_failed
-1:
-#endif
-  ldp x0, x30, [sp], 16
+  check_stack_alignment_nomove x1
   ret
-  .size fiber_asm_invoke, .-fiber_asm_invoke
+END_FUNC(fiber_asm_invoke)
 
-  .align 4
-fiber_asm_exec_on_stack:
+FUNC(fiber_asm_exec_on_stack):
   mov x3, sp
   stp x3, x30, [x0, -16]!
   mov sp, x0
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  tst x0, 0xF
-  beq 1f
-  b fiber_align_check_failed
-1:
-#endif
+  check_stack_alignment_nomove x0
   mov x0, x2
   blr x1
   ldp x3, x30, [sp]
   mov sp, x3
   ret
-  .size fiber_asm_exec_on_stack, .-fiber_asm_exec_on_stack
+END_FUNC(fiber_asm_exec_on_stack)
+
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
+align_check_failed:
+  b fiber_align_check_failed
+#endif

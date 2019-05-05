@@ -303,11 +303,6 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
 #else
     sp -= sizeof(FiberFunc);
     *(FiberFunc *) sp = (FiberFunc) fiber_asm_invoke;
-
-#if defined(FIBER_TARGET_AARCH64_APCS)
-    sp -= WORD_SIZE;
-    assert(IS_STACK_ALIGNED(sp));
-#endif
 #endif
     fbr->regs.sp = (void *) sp;
 }
