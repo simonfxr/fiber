@@ -36,26 +36,14 @@ typedef struct
 #elif HU_BITS_32_P && HU_OS_POSIX_P && HU_ARCH_ARM_P
 #define FIBER_TARGET_ARM32_EABI
 #define FIBER_DEFAULT_STACK_ALIGNMENT 8
+#define FIBER_HAVE_LR 1
 typedef struct
 {
-    void *r4;
-    void *r5;
-    void *r6;
-    void *r7;
-    void *r8;
-    void *r9;
-    void *r10;
-    void *r11;
-    void *r12;
-    void *sp;
-    uint64_t d8;
-    uint64_t d9;
-    uint64_t d10;
-    uint64_t d11;
-    uint64_t d12;
-    uint64_t d13;
-    uint64_t d14;
-    uint64_t d15;
+    void *__pad;
+    void *r[9];  /* r4 - r12 */
+    void *sp;    /* r13 */
+    void *lr;    /* r14 */
+    double d[8]; /* d8 - d15 */
 } FiberRegs;
 #elif HU_BITS_64_P && HU_OS_POSIX_P && HU_ARCH_ARM_P
 #define FIBER_TARGET_AARCH64_APCS 1

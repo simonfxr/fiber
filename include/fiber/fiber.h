@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef FIBER_SHARED
 #ifdef fiber_EXPORTS
@@ -128,7 +129,7 @@ fiber_switch(Fiber *from, Fiber *to);
  * @param f the function to place in the stack frame, it will be called with a
  * pointer to the beginning of the argument buffer
  * @param args_dest the argument will receive a pointer to the buffer allocated
- * on the fiber stack
+ * on the fiber stack, will be aligned to 8 bytes on all platforms.
  * @param args_size size of the argument buffer to allocate
  */
 FIBER_API void
@@ -140,16 +141,18 @@ fiber_reserve_return(Fiber *fiber,
  * similar to @see fiber_reserve_return(), instead of returning the pointer to
  * the buffer, it will copy the contents into the stack allocated argument
  * buffer
- * @param fiber where to allocat the fresh stack frame
+ * @param fiber where to allocate the fresh stack frame
  * @param f function to place into the stack frame
  * @param args buffer to copy onto the stack frame
  * @param args_size size of argument buffer to copy
  */
-FIBER_API void
-fiber_push_return(Fiber *fiber,
-                  FiberFunc f,
-                  const void *args,
-                  size_t args_size);
+static inline void
+fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s)
+{
+    void *args_dest;
+    fiber_reserve_return(fbr, f, &args_dest, s);
+    memcpy(args_dest, args, s);
+}
 
 /**
  * Temporarily switch from the active fiber to a temporary fiber and immediately

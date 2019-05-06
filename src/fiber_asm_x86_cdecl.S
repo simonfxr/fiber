@@ -1,3 +1,7 @@
+  .altmacro
+  .intel_syntax noprefix
+  .text
+
 
 #ifdef FIBER_STACK_ALIGNMENT
 #define STACK_ALIGNMENT FIBER_STACK_ALIGNMENT
@@ -5,67 +9,57 @@
 #define STACK_ALIGNMENT 16
 #endif
 
-  .intel_syntax noprefix
-  .text
+#define FUNC(sym) \
+  .global sym; \
+  .hidden sym; \
+  .type sym, @function; \
+  sym
+#define END_FUNC(sym) .size sym, .-sym
 
-  .global fiber_asm_switch
-  .hidden fiber_asm_switch
-  .type   fiber_asm_switch, @function
+  .macro check_stack_alignment
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
+    test esp, STACK_ALIGNMENT - 1
+    jnz align_check_failed
+#endif
+  .endm
 
-  .global fiber_asm_invoke
-  .hidden fiber_asm_invoke
-  .type   fiber_asm_invoke, @function
-
-  .global fiber_asm_exec_on_stack
-  .hidden fiber_asm_exec_on_stack
-  .type   fiber_asm_invoke, @function
-
-fiber_asm_switch:
-  mov edx, [esp + 4]
-  mov ecx, [esp + 8]
-
-  mov [edx + 0], esp
-  mov [edx + 4], ebp
-  mov [edx + 8], ebx
-  mov [edx + 12], edi
-  mov [edx + 16], esi
-
-  mov esp, [ecx + 0]
-  mov ebp, [ecx + 4]
-  mov ebx, [ecx + 8]
-  mov edi, [ecx + 12]
-  mov esi, [ecx + 16]
-
+FUNC(fiber_asm_switch):
+  mov edx, [esp+4]
+  mov ecx, [esp+8]
+  .set i, 0
+  .irp r, esp, ebp, ebx, edi, esi
+    mov [edx+4*i], \r
+    mov \r, [ecx+4*i]
+    .set i, i+1
+  .endr
   ret
-  .size fiber_asm_switch, .-fiber_asm_switch
+END_FUNC(fiber_asm_switch)
 
-fiber_asm_invoke:
-  mov edx, [esp + 4]
-  mov eax, [esp + 8]
+FUNC(fiber_asm_invoke):
+  mov eax, [esp+4]
+  mov edx, [esp+8]
   mov [esp], eax
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  test esp, STACK_ALIGNMENT - 1
-  jnz fiber_align_check_failed
-#endif
+  check_stack_alignment
   call edx
-  mov esp, [esp + 12]
+  mov esp, [esp+12]
   ret
-  .size fiber_asm_invoke, .-fiber_asm_invoke
+END_FUNC(fiber_asm_invoke)
 
-fiber_asm_exec_on_stack:
+FUNC(fiber_asm_exec_on_stack):
   mov eax, esp
-  mov esp, [eax + 4]
-  mov ecx, [eax + 8]
-  mov edx, [eax + 12]
-  push eax
-  sub esp, 4
-  push edx
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  test esp, STACK_ALIGNMENT - 1
-  jnz fiber_align_check_failed
-#endif
+  mov edx, [eax+4]
+  mov ecx, [eax+8]
+  mov esp, [eax+12]
+  sub esp, 12
+  mov [esp+4], eax
+  mov [esp], edx
+  check_stack_alignment
   call ecx
-  add esp, 8
-  pop esp
+  mov esp, [esp+4]
   ret
-  .size fiber_asm_exec_on_stack, .-fiber_asm_exec_on_stack
+END_FUNC(fiber_asm_exec_on_stack)
+
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
+align_check_failed:
+  jmp fiber_align_check_failed
+#endif

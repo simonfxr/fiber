@@ -8,7 +8,12 @@
 
   .text
 
-#define FUNC(sym) .align 4; .global sym; .hidden sym; .type sym, @function; sym
+#define FUNC(sym) \
+  .global sym; \
+  .hidden sym; \
+  .type sym, @function; \
+  .align 4; \
+  sym
 #define END_FUNC(sym) .size sym, .-sym
 
   .macro check_stack_alignment_nomove reg
@@ -60,28 +65,28 @@ FUNC(fiber_asm_switch):
 END_FUNC(fiber_asm_switch)
 
 FUNC(fiber_asm_invoke):
-  ld a1, 0(sp)
-  ld a0, 8(sp)
+  ld a0, 0(sp)
+  ld a1, 8(sp)
+  addi sp, sp, 16
   check_stack_alignment_move t1
   jalr a1
-  ld ra, 16(sp)
-  ld sp, 24(sp)
+  ld ra, 8(sp)
+  ld sp, 0(sp)
   check_stack_alignment_move t1
   ret
 END_FUNC(fiber_asm_invoke)
 
 FUNC(fiber_asm_exec_on_stack):
   addi sp, sp, -16
-  sd s0, 0(sp)
-  sd ra, 8(sp)
+  sd ra, 0(sp)
+  sd s0, 8(sp)
   mv s0, sp
-  mv sp, a0
-  mv a0, a2
+  mv sp, a2
   check_stack_alignment_move t1
   jalr a1
   mv sp, s0
-  ld ra, 8(s0)
-  ld s0, 0(s0)
+  ld ra, 0(s0)
+  ld s0, 8(s0)
   addi sp, sp, 16
   ret
 END_FUNC(fiber_asm_exec_on_stack)

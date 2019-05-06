@@ -12,18 +12,42 @@
 #include <Windows.h>
 #endif
 
-#define WORD_SIZE (sizeof(void *))
-
 #define UNUSED(a) ((void) (a))
 
 #ifndef FIBER_STACK_ALIGNMENT
-#define STACK_ALIGNMENT ((uintptr_t) FIBER_DEFAULT_STACK_ALIGNMENT)
+static const size_t STACK_ALIGNMENT = FIBER_DEFAULT_STACK_ALIGNMENT;
 #else
-#define STACK_ALIGNMENT ((uintptr_t) FIBER_STACK_ALIGNMENT)
+static const size_t STACK_ALIGNMENT = FIBER_STACK_ALIGNMENT;
 #endif
 
-#define IS_STACK_ALIGNED(x) (((uintptr_t)(x) & (STACK_ALIGNMENT - 1)) == 0)
-#define STACK_ALIGN(x) ((uintptr_t)(x) & ~(STACK_ALIGNMENT - 1))
+static const size_t ARG_ALIGNMENT = 8;
+static const size_t WORD_SIZE = sizeof(void *);
+static const size_t PAGE_SIZE = 4096;
+
+static inline void *
+stack_align_n(void *sp, size_t n)
+{
+    return (void *) ((uintptr_t) sp & ~(uintptr_t)(n - 1));
+}
+
+static inline void *
+stack_align(void *sp)
+{
+    return stack_align_n(sp, STACK_ALIGNMENT);
+}
+
+static inline bool
+is_stack_aligned(void *sp)
+{
+    return ((uintptr_t) sp & (STACK_ALIGNMENT - 1)) == 0;
+}
+
+static inline void
+push(char **sp, void *val)
+{
+    *sp -= WORD_SIZE;
+    *(void **) *sp = val;
+}
 
 typedef struct
 {
@@ -76,8 +100,6 @@ fiber_init_toplevel(Fiber *fbr)
     memset(&fbr->regs, 0, sizeof fbr->regs);
     fbr->state = FIBER_FS_ALIVE | FIBER_FS_TOPLEVEL | FIBER_FS_EXECUTING;
 }
-
-static const size_t PAGE_SIZE = 4096;
 
 static void *
 alloc_pages(size_t npages)
@@ -219,14 +241,6 @@ fiber_switch(Fiber *from, Fiber *to)
     fiber_asm_switch(&from->regs, &to->regs);
 }
 
-void
-fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s)
-{
-    void *args_dest;
-    fiber_reserve_return(fbr, f, &args_dest, s);
-    memcpy(args_dest, args, s);
-}
-
 #if hu_has_attribute(weak)
 #define HAVE_probe_stack_weak_dummy
 __attribute__((weak)) void
@@ -268,43 +282,38 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     assert(!fiber_is_executing(fbr));
 
     char *sp = fbr->regs.sp;
-    sp = (char *) STACK_ALIGN(sp - WORD_SIZE);
-    s = (s + STACK_ALIGNMENT - 1) & ~((size_t) STACK_ALIGNMENT - 1);
-    assert(IS_STACK_ALIGNED(sp) && "1");
+    size_t arg_align =
+      ARG_ALIGNMENT > STACK_ALIGNMENT ? ARG_ALIGNMENT : STACK_ALIGNMENT;
+    sp = stack_align_n(sp - s, arg_align);
+    *args = sp;
 
     if (hu_unlikely(s > PAGE_SIZE - 100))
         probe_stack(sp, s);
 
-    sp -= s;
-    *args = (void *) sp;
-    assert(IS_STACK_ALIGNED(sp) && "2");
-
-    sp -= sizeof fbr->regs.sp;
-    *(void **) sp = fbr->regs.sp;
+    assert(is_stack_aligned(sp) && "1");
 
 #ifdef FIBER_HAVE_LR
-    sp -= sizeof fbr->regs.lr;
-    *(void **) sp = fbr->regs.lr;
+    push(&sp, fbr->regs.lr);
 #endif
 
-    sp -= sizeof *args;
-    *(void **) sp = *args;
-
-    sp -= sizeof(FiberFunc);
-    *(FiberFunc *) sp = f;
+    push(&sp, fbr->regs.sp);
+    push(&sp, f);
+    push(&sp, *args);
 
 #ifndef FIBER_HAVE_LR
-    sp -= WORD_SIZE; // introduced to realign stack to 16 bytes
+    if (STACK_ALIGNMENT >= 8)
+        sp -= WORD_SIZE; // introduced to realign stack to 16 bytes
 #endif
-    assert(IS_STACK_ALIGNED(sp) && "3");
+    assert(is_stack_aligned(sp) && "2");
 
 #ifdef FIBER_HAVE_LR
     fbr->regs.lr = fiber_asm_invoke;
 #else
-    sp -= sizeof(FiberFunc);
-    *(FiberFunc *) sp = (FiberFunc) fiber_asm_invoke;
+    push(&sp, fiber_asm_invoke);
 #endif
+
     fbr->regs.sp = (void *) sp;
+#undef PUSH
 }
 
 void
@@ -320,7 +329,7 @@ fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
         assert(!fiber_is_executing(temp));
         temp->state |= FIBER_FS_EXECUTING;
         active->state &= ~FIBER_FS_EXECUTING;
-        fiber_asm_exec_on_stack(temp->regs.sp, f, args);
+        fiber_asm_exec_on_stack(args, f, temp->regs.sp);
         active->state |= FIBER_FS_EXECUTING;
         temp->state &= ~FIBER_FS_EXECUTING;
     }

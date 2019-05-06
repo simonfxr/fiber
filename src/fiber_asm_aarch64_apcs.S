@@ -2,7 +2,13 @@
   .arch armv8-a
   .text
 
-#define FUNC(sym) .align 4; .global sym; .hidden sym; .type sym, @function; sym
+#define FUNC(sym) \
+  .align 4; \
+  .global sym; \
+  .hidden sym; \
+  .type sym, @function; \
+  sym
+
 #define END_FUNC(sym) .size sym, .-sym
 
   .macro check_stack_alignment_nomove reg
@@ -25,6 +31,8 @@ FUNC(fiber_asm_switch):
   ldr x3, [x1], 8
   mov sp, x3
 
+  check_stack_alignment_nomove x3
+
   stp x30, x29, [x0], 16
   ldp x30, x29, [x1], 16
   stp x19, x20, [x0], 16
@@ -37,38 +45,35 @@ FUNC(fiber_asm_switch):
   ldp x25, x26, [x1], 16
   stp x27, x28, [x0], 16
   ldp x27, x28, [x1], 16
-
   stp d8, d9, [x0], 16
   ldp d8, d9, [x1], 16
   stp d10, d11, [x0], 16
   ldp d10, d11, [x1], 16
   stp d12, d13, [x0], 16
   ldp d12, d13, [x1], 16
-  stp d14, d15, [x0], 16
-  ldp d14, d15, [x1], 16
+  stp d14, d15, [x0]
+  ldp d14, d15, [x1]
 
-  check_stack_alignment_nomove x3
   ret
 END_FUNC(fiber_asm_switch)
 
 FUNC(fiber_asm_invoke):
-  ldp x1, x0, [sp], 16
-  check_stack_alignment_move x2
+  ldp x0, x1, [sp], 16
+  check_stack_alignment_move x3
   blr x1
-  ldp x30, x1, [sp], 16
-  mov sp, x1
-  check_stack_alignment_nomove x1
+  ldp x3, lr, [sp]
+  mov sp, x3
+  check_stack_alignment_nomove x3
   ret
 END_FUNC(fiber_asm_invoke)
 
 FUNC(fiber_asm_exec_on_stack):
   mov x3, sp
-  stp x3, x30, [x0, -16]!
-  mov sp, x0
-  check_stack_alignment_nomove x0
-  mov x0, x2
+  stp x3, lr, [x2, #-16]!
+  mov sp, x2
+  check_stack_alignment_nomove x2
   blr x1
-  ldp x3, x30, [sp]
+  ldp x3, lr, [sp]
   mov sp, x3
   ret
 END_FUNC(fiber_asm_exec_on_stack)

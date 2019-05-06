@@ -4,80 +4,53 @@
   .fpu vfp
   .text
 
-  .global fiber_asm_switch
-  .hidden fiber_asm_switch
-  .type   fiber_asm_switch, %function
+#define FUNC(sym) \
+  .global sym; \
+  .hidden sym; \
+  .type sym, %function; \
+  .align 2; \
+  sym
 
-  .global fiber_asm_invoke
-  .hidden fiber_asm_invoke
-  .type   fiber_asm_invoke, %function
+#define END_FUNC(sym) .size sym, .-sym
 
-  .global fiber_asm_exec_on_stack
-  .hidden fiber_asm_exec_on_stack
-  .type   fiber_asm_exec_on_stack, %function
-
-  .align 2
-fiber_asm_switch:
+  .macro check_stack_alignment
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
-  tst r13, #7
-  beq 1f
-  bl fiber_align_check_failed
-1:
+    tst sp, #7
+    bne align_check_failed
 #endif
-  push {lr}
-  stm r0!, {r4-r13}
-  vstm r0, {d9-d15}
-  ldm r1!, {r4-r13}
-  vldm r1, {d9-d15}
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  pop {lr}
-  tst r13, #7
-  beq 2f
-  bl fiber_align_check_failed
-2:
+  .endm
+
+FUNC(fiber_asm_switch):
+  stm r0!, {r3-r14}
+  ldm r1!, {r3-r14}
+  vstm r0, {d8-d15}
+  vldm r1, {d8-d15}
+  check_stack_alignment
   bx lr
-#else
-  pop {pc}
-#endif
-  .size fiber_asm_switch, .-fiber_asm_switch
+END_FUNC(fiber_asm_switch)
 
-  .align 2
-fiber_asm_invoke:
-  pop {r0-r1}
-  ldr r0, [sp]
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  tst sp, #7
-  beq 1f
-  bl fiber_align_check_failed
-1:
-#endif
+FUNC(fiber_asm_invoke):
+  pop {r0, r1}
+  check_stack_alignment
   blx r1
-  ldr r13, [r13, #4]
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  pop {lr}
-  tst r13, #7
-  beq 2f
-  bl fiber_align_check_failed
-2:
+  ldm sp, {r0, lr}
+  mov sp, r0
+  check_stack_alignment
   bx lr
-#else
-  pop {pc}
-#endif
-  .size fiber_asm_invoke, .-fiber_asm_invoke
+END_FUNC(fiber_asm_invoke)
 
-  .align 2
-fiber_asm_exec_on_stack:
-  stmdb r0!, {r3, r13, lr}
-  mov r13, r0
-#ifdef FIBER_ASM_CHECK_ALIGNMENT
-  tst r13, #7
-  beq 1f
-  bl fiber_align_check_failed
-1:
-#endif
-  mov r0, r2
+FUNC(fiber_asm_exec_on_stack):
+  stmdb r2!, {v1, lr}
+  mov v1, sp
+  mov sp, r2
+  check_stack_alignment
   blx r1
-  pop {r0-r2}
-  mov r13, r1
-  bx r2
-  .size fiber_asm_exec_on_stack, .-fiber_asm_exec_on_stack
+  mov r0, sp
+  mov sp, v1
+  ldm r0, {v1, pc}
+END_FUNC(fiber_asm_exec_on_stack)
+
+#ifdef FIBER_ASM_CHECK_ALIGNMENT
+align_check_failed:
+  b fiber_align_check_failed
+#endif
