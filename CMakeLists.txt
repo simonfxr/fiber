@@ -20,6 +20,14 @@ set(FIBER_ASM_CHECK_ALIGNMENT True
 
 set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
 
+set(FIBER_HAVE_LTO False)
+include(CheckIPOSupported OPTIONAL RESULT_VARIABLE HAVE_CHECK_IPO)
+if(HAVE_CHECK_IPO)
+  check_ipo_supported(RESULT FIBER_HAVE_LTO)
+endif()
+
+set(FIBER_LTO ${FIBER_HAVE_LTO} CACHE BOOL "enable lto")
+
 message(STATUS CMAKE_SYSTEM_PROCESSOR="${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
 message(STATUS CMAKE_C_SIZEOF_DATA_PTR="${CMAKE_C_SIZEOF_DATA_PTR}")
@@ -40,6 +48,9 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|^arm")
   set(FIBER_ARM True)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv")
   set(FIBER_RISCV True)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64le")
+  set(FIBER_PPCLE True)
+  set(FIBER_BITS64 True)
 else()
   message(
     ERROR
@@ -109,6 +120,8 @@ elseif(WIN32 AND FIBER_X86 AND FIBER_BITS32)
   endif()
 elseif(UNIX AND FIBER_RISCV AND FIBER_BITS64)
   set(asm_sources src/fiber_asm_riscv64_elf.S)
+elseif(UNIX AND FIBER_PPCLE AND FIBER_BITS64)
+  set(asm_sources src/fiber_asm_ppc64le_elf2.S)
 endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
@@ -147,6 +160,9 @@ target_include_directories(fiber PUBLIC include)
 target_include_directories(fiber PRIVATE src)
 target_link_libraries(fiber PUBLIC header-utils::header-utils)
 target_compile_definitions(fiber PRIVATE ${defines})
+if(FIBER_LTO)
+  set_property(TARGET fiber PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 add_library(fiber::fiber ALIAS fiber)
 target_compile_options(fiber PUBLIC ${cflags})
@@ -173,6 +189,9 @@ if(FIBER_STANDALONE_PROJECT)
     target_compile_options(${tgt} PRIVATE ${cflags})
     if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
       target_compile_definitions(${tgt} PRIVATE _CRT_SECURE_NO_WARNINGS=1)
+    endif()
+    if(FIBER_LTO)
+      set_property(TARGET ${tgt} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
   endmacro()
 

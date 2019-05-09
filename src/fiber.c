@@ -166,16 +166,16 @@ fiber_alloc(Fiber *fbr,
         if (flags & FIBER_FLAG_GUARD_HI)
             ++npages;
         fbr->alloc_stack = alloc_pages(npages);
-        if (!fbr->alloc_stack)
+        if (hu_unlikely(!fbr->alloc_stack))
             return false;
 
         if (flags & FIBER_FLAG_GUARD_LO)
-            if (!protect_page(fbr->alloc_stack, false))
+            if (hu_unlikely(!protect_page(fbr->alloc_stack, false)))
                 goto fail;
 
         if (flags & FIBER_FLAG_GUARD_HI)
-            if (!protect_page(
-                  (char *) fbr->alloc_stack + (npages - 1) * PAGE_SIZE, false))
+            if (hu_unlikely(!protect_page(
+                  (char *) fbr->alloc_stack + (npages - 1) * PAGE_SIZE, false)))
                 goto fail;
         if (flags & FIBER_FLAG_GUARD_LO)
             fbr->stack = (char *) fbr->alloc_stack + PAGE_SIZE;
