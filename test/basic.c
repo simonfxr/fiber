@@ -59,11 +59,11 @@ main()
     Fiber toplevel;
     fiber_init_toplevel(&toplevel);
     Fiber fiber;
-    fiber_alloc(&fiber,
-                STACK_SIZE,
-                fiber_cleanup,
-                NULL,
-                FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI);
+    (void) fiber_alloc(&fiber,
+                       STACK_SIZE,
+                       fiber_cleanup,
+                       NULL,
+                       FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI);
     FiberArgs *args;
     fiber_reserve_return(&fiber, fiber_entry, (void **) &args, sizeof *args);
     args->self = &fiber;

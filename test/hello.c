@@ -36,7 +36,7 @@ main()
     Fiber crt;
     /* allocate a stack of 16kb, additionally add an unmapped page to detect
      * overflows */
-    fiber_alloc(&crt, 1024 * 16, guard, NULL, FIBER_FLAG_GUARD_LO);
+    (void) fiber_alloc(&crt, 1024 * 16, guard, NULL, FIBER_FLAG_GUARD_LO);
     Args args;
     args.caller = &main_fiber;
     args.self = &crt;

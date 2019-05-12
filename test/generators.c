@@ -93,7 +93,7 @@ gen_new(const char *name, void (*f)(void *), void *args, size_t args_size)
     gen_args.args = calloc(1, args_size);
     memcpy(gen_args.args, args, args_size);
 
-    fiber_alloc(
+    (void) fiber_alloc(
       &gen->fiber, STACK_SIZE, fiber_guard, NULL, FIBER_FLAG_GUARD_LO);
     fiber_push_return(&gen->fiber, gen_start, &gen_args, sizeof gen_args);
     return gen;

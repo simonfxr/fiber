@@ -133,7 +133,7 @@ guard(Fiber *fiber, void *null)
 static void
 setup_fiber(Fiber *caller, Fiber *fiber, Args **args, int id)
 {
-    fiber_alloc(fiber, 16 * 1024, guard, NULL, FIBER_FLAG_GUARD_LO);
+    (void) fiber_alloc(fiber, 16 * 1024, guard, NULL, FIBER_FLAG_GUARD_LO);
     fiber_reserve_return(fiber, entry, (void **) args, sizeof *args);
     (*args)->self = fiber;
     (*args)->caller = caller;

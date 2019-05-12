@@ -17,6 +17,7 @@
 typedef struct
 {
     void *sp;
+    void *lr;
     void *ebp;
     void *ebx;
     void *edi;
@@ -28,6 +29,7 @@ typedef struct
 typedef struct
 {
     void *sp;
+    void *lr;
     void *rbp;
     void *rbx;
     void *r12;
@@ -35,36 +37,13 @@ typedef struct
     void *r14;
     void *r15;
 } FiberRegs;
-#elif HU_ARCH_ARM_P && HU_BITS_32_P && HU_OS_POSIX_P
-#define FIBER_TARGET_ARM32_EABI
-#define FIBER_DEFAULT_STACK_ALIGNMENT 8
-#define FIBER_HAVE_LR 1
-typedef struct
-{
-    void *__pad;
-    void *r[9];  /* r4 - r12 */
-    void *sp;    /* r13 */
-    void *lr;    /* r14 */
-    double d[8]; /* d8 - d15 */
-} FiberRegs;
-#elif HU_ARCH_ARM_P && HU_BITS_64_P && HU_OS_POSIX_P
-#define FIBER_TARGET_AARCH64_APCS 1
-#define FIBER_DEFAULT_STACK_ALIGNMENT 16
-#define FIBER_HAVE_LR 1
-typedef struct
-{
-    void *sp;
-    void *lr;    /* r30 */
-    void *fp;    /* r29 */
-    void *r[10]; /* r19 - r28 */
-    double d[8]; /* d8 - d15 */
-} FiberRegs;
 #elif HU_ARCH_X86_P && HU_BITS_64_P && HU_OS_WINDOWS_P
 #define FIBER_TARGET_AMD64_WIN64 1
 #define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
     void *sp;
+    void *lr;
     void *rbx;
     void *rbp;
     void *rdi;
@@ -83,15 +62,37 @@ typedef struct
 typedef struct
 {
     void *sp;
+    void *lr;
     void *ebx;
     void *ebp;
     void *esi;
     void *edi;
 } FiberRegs;
+#elif HU_ARCH_ARM_P && HU_BITS_32_P && HU_OS_POSIX_P
+#define FIBER_TARGET_ARM32_EABI
+#define FIBER_DEFAULT_STACK_ALIGNMENT 8
+typedef struct
+{
+    void *__pad;
+    void *r[9];  /* r4 - r12 */
+    void *sp;    /* r13 */
+    void *lr;    /* r14 */
+    double d[8]; /* d8 - d15 */
+} FiberRegs;
+#elif HU_ARCH_ARM_P && HU_BITS_64_P && HU_OS_POSIX_P
+#define FIBER_TARGET_AARCH64_APCS 1
+#define FIBER_DEFAULT_STACK_ALIGNMENT 16
+typedef struct
+{
+    void *sp;
+    void *lr;    /* r30 */
+    void *fp;    /* r29 */
+    void *r[10]; /* r19 - r28 */
+    double d[8]; /* d8 - d15 */
+} FiberRegs;
 #elif HU_ARCH_RISCV_P && HU_BITS_64_P && HU_OS_POSIX_P
 #define FIBER_TARGET_RISCV64_ELF 1
 #define FIBER_DEFAULT_STACK_ALIGNMENT 16
-#define FIBER_HAVE_LR 1
 #ifndef __riscv_float_abi_double
 #error "this RISCV abi is not supported use -mabi=lp64d"
 #endif
@@ -105,16 +106,18 @@ typedef struct
 #elif HU_ARCH_PPC_P && HU_BITS_64_P && HU_LITTLE_ENDIAN_P && HU_OBJFMT_ELF_P
 #define FIBER_TARGET_PPC64LE_ELF 1
 #define FIBER_DEFAULT_STACK_ALIGNMENT 16
-#define FIBER_HAVE_LR 1
 #if !defined(_CALL_ELF) || _CALL_ELF != 2
 #error "this PowerPC ABI is not supported, use -mabi=elfv2"
 #endif
 typedef struct
 {
-    void *lr;    /* r0 */
-    void *sp;    /* r1 */
-    void *r[18]; /* r14 - r31 */
     uint32_t cr;
+    uint32_t vrsave;
+    void *lr;              /* r0 */
+    void *sp;              /* r1 */
+    void *r[18];           /* r14 - r31 */
+    double *f[18];         /* f14 - f31 */
+    double *v[12 * 2 + 1]; /* v20 - v31, adjusted to be 16 byte aligned */
 } FiberRegs;
 #else
 #error "fiber: system/architecture target not supported"

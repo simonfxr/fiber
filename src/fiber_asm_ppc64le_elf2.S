@@ -33,18 +33,52 @@
  .endm
 
 FUNC(fiber_asm_switch)
+
+  mfcr 5
+  stw 5, 0(3)
+  lwz 5, 0(4)
+  mtcr 5
+
+  mfvrsave 6
+  stw 6, 4(3)
+  lwz 6, 4(4)
+  mtvrsave 6
+
   mflr 0
-  std 0, 0(3)
-  ld 0, 0(4)
+  std 0, 8(3)
+  ld 0, 8(4)
   mtlr 0
 
-  std 1, 8(3)
-  ld 1, 8(4)
+  std 1, 16(3)
+  ld 1, 16(4)
 
   .set i, 0
   .rep 18
-    std 14+i, 16+8*i(3)
-    ld  14+i, 16+8*i(4)
+    std 14+i, 24+8*i(3)
+    ld  14+i, 24+8*i(4)
+    .set i, i+1
+  .endr
+
+  .set i, 0
+  .rep 18
+    stfd 14+i, 168+8*i(3)
+    lfd  14+i, 168+8*i(4)
+    .set i, i+1
+  .endr
+
+  // 16byte align beginning of vN in r3/r4
+  addi 3, 3, (36 + 3) * 8 + 15
+  rldicr 3, 3, 0, 59
+  addi 4, 4, (36 + 3) * 8 + 15
+  rldicr 4, 4, 0, 59
+
+  stvx 20, 0, 3
+  lvx 20, 0, 4
+  .set i, 1
+  .rep 11
+    li 5, i * 16
+    stvx 20+i, 3, 5
+    lvx 20+i, 4, 5
     .set i, i+1
   .endr
 

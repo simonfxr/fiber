@@ -28,41 +28,39 @@
  .macro check_stack_alignment
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
    test esp, 0xF
-   jnz align_check_failed
+   jnz .align_check_failed
 #endif
  .endm
 
 
-FUNC(fiber_asm_switch):           // Regs *from, Regs *to -> void
-  mov rax, [rsi]
-  mov rcx, [rax]
-  mov [rdi + 0], rsp
-  lea rsp, [rax + 8]
-  .set i, 1
-  .irp r, rbp, rbx, r12, r13, r14, r15
+FUNC(fiber_asm_switch):
+  pop rax
+  .set i, 0
+  .irp r, rsp, rax, rbp, rbx, r12, r13, r14, r15
      mov [rdi + 8 * i], \r
      mov \r, [rsi + 8 * i]
      .set i, i+1
   .endr
-  jmp rcx
+  jmp rax
 END_FUNC(fiber_asm_switch)
 
 
 FUNC(fiber_asm_invoke):
-  mov rdi, [rsp + 8]
-  mov rsi, [rsp + 16]
-  add rsp, 16
+  pop rdi
+  pop rsi
   check_stack_alignment
   call rsi
-  mov rsp, [rsp + 8]
-  ret
+  mov rax, [rsp + 8]
+  mov rsp, [rsp]
+  check_stack_alignment
+  jmp rax
 END_FUNC(fiber_asm_invoke)
 
 
 FUNC(fiber_asm_exec_on_stack):
   push rbp
   mov rbp, rsp
-  lea rsp, [rdx - 8]
+  mov rsp, rdx
   check_stack_alignment
   call rsi
   mov rsp, rbp
@@ -71,6 +69,6 @@ FUNC(fiber_asm_exec_on_stack):
 END_FUNC(fiber_asm_exec_on_stack)
 
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
-align_check_failed:
+.align_check_failed:
   jmp ENTRY(fiber_align_check_failed)
 #endif

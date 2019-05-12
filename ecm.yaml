@@ -2,5 +2,7 @@
 build-configs:
   - debug-clang-ninja
   - debug-gcc-ninja
+  - debug-intel-ninja
   - release-gcc-ninja
   - release-clang-ninja
+  - release-intel-ninja

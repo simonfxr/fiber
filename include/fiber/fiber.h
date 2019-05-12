@@ -1,7 +1,9 @@
 #ifndef FIBER_H
 #define FIBER_H
 
-#include <hu/macros.h>
+#include <hu/annotations.h>
+#include <hu/lang.h>
+#include <hu/objfmt.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -10,9 +12,9 @@
 
 #ifdef FIBER_SHARED
 #ifdef fiber_EXPORTS
-#define FIBER_API HU_LIB_EXPORT
+#define FIBER_API HU_DSO_EXPORT
 #else
-#define FIBER_API HU_LIB_IMPORT
+#define FIBER_API HU_DSO_IMPORT
 #endif
 #else
 #define FIBER_API
@@ -40,14 +42,8 @@ typedef struct Fiber
     FiberState state;
 } Fiber;
 
-#ifdef __cplusplus
-#define FIBER_CAST(T, x) static_cast<T>(x)
-#else
-#define FIBER_CAST(T, x) ((T) x)
-#endif
-
-#define FIBER_STATE_CONSTANT(x) FIBER_CAST(FiberState, x)
-#define FIBER_FLAG_CONSTANT(x) FIBER_CAST(FiberFlags, x)
+#define FIBER_STATE_CONSTANT(x) HU_STATIC_CAST(FiberState, x)
+#define FIBER_FLAG_CONSTANT(x) HU_STATIC_CAST(FiberFlags, x)
 
 #define FIBER_FS_EXECUTING FIBER_STATE_CONSTANT(1)
 #define FIBER_FS_TOPLEVEL FIBER_STATE_CONSTANT(2)
@@ -74,11 +70,14 @@ typedef void(FIBER_CCONV *FiberCleanupFunc)(Fiber *, void *);
  * @param cleanup the initial function on the call stack
  * @param arg the arg to pass to cleanup when it is invoked
  */
-FIBER_API Fiber *
-fiber_init(Fiber *fiber,
-           void *stack,
+FIBER_API
+HU_NONNULL_PARAMS(1, 2, 4)
+HU_RETURNS_NONNULL
+Fiber *
+fiber_init(HU_OUT_NONNULL Fiber *fiber,
+           HU_INOUT_NONNULL void *stack,
            size_t stack_size,
-           FiberCleanupFunc cleanup,
+           HU_IN_NONNULL FiberCleanupFunc cleanup,
            void *arg);
 
 /**
@@ -86,8 +85,10 @@ fiber_init(Fiber *fiber,
  * only be called once per OS Thread!
  * @param fiber the fiber to create
  */
-FIBER_API void
-fiber_init_toplevel(Fiber *fiber);
+FIBER_API
+HU_NONNULL_PARAMS(1)
+void
+fiber_init_toplevel(HU_OUT_NONNULL Fiber *fiber);
 
 /**
  * create a new Fiber by allocating a fresh stack, optionally with bottom or top
@@ -98,10 +99,13 @@ fiber_init_toplevel(Fiber *fiber);
  * @param cleanup the initial function on the call stack.
  * @param arg the arg to pass to cleanup when it is invoked
  */
-FIBER_API bool
-fiber_alloc(Fiber *fiber,
+FIBER_API
+HU_NONNULL_PARAMS(1, 3)
+HU_NODISCARD
+bool
+fiber_alloc(HU_OUT_NONNULL Fiber *fiber,
             size_t stack_size,
-            FiberCleanupFunc cleanup,
+            HU_IN_NONNULL FiberCleanupFunc cleanup,
             void *arg,
             FiberFlags flags);
 
@@ -109,8 +113,10 @@ fiber_alloc(Fiber *fiber,
  * Deallocate the stack, does nothing if created by fiber_init().
  * @param fiber the fiber to destroy
  */
-FIBER_API void
-fiber_destroy(Fiber *fiber);
+FIBER_API
+HU_NONNULL_PARAMS(1)
+void
+fiber_destroy(HU_IN_NONNULL Fiber *fiber);
 
 /**
  * Switch from the current fiber to a different fiber by returning to the stack
@@ -118,8 +124,10 @@ fiber_destroy(Fiber *fiber);
  * @param from currently executing fiber
  * @param to fiber to switch to
  */
-FIBER_API void
-fiber_switch(Fiber *from, Fiber *to);
+FIBER_API
+HU_NONNULL_PARAMS(1, 2)
+void
+fiber_switch(HU_INOUT_NONNULL Fiber *from, HU_INOUT_NONNULL Fiber *to);
 
 /**
  * Allocate a fresh stack frame at the top of a fiber with an argument buffer of
@@ -132,10 +140,11 @@ fiber_switch(Fiber *from, Fiber *to);
  * on the fiber stack, will be aligned to 8 bytes on all platforms.
  * @param args_size size of the argument buffer to allocate
  */
+HU_NONNULL_PARAMS(1, 2, 3)
 FIBER_API void
-fiber_reserve_return(Fiber *fiber,
-                     FiberFunc f,
-                     void **args_dest,
+fiber_reserve_return(HU_INOUT_NONNULL Fiber *fiber,
+                     HU_IN_NONNULL FiberFunc f,
+                     HU_OUT_NONNULL void **args_dest,
                      size_t args_size);
 /**
  * similar to @see fiber_reserve_return(), instead of returning the pointer to
@@ -146,8 +155,12 @@ fiber_reserve_return(Fiber *fiber,
  * @param args buffer to copy onto the stack frame
  * @param args_size size of argument buffer to copy
  */
+HU_NONNULL_PARAMS(1, 2)
 static inline void
-fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s)
+fiber_push_return(HU_INOUT_NONNULL Fiber *fbr,
+                  HU_IN_NONNULL FiberFunc f,
+                  const void *args,
+                  size_t s)
 {
     void *args_dest;
     fiber_reserve_return(fbr, f, &args_dest, s);
@@ -164,29 +177,40 @@ fiber_push_return(Fiber *fbr, FiberFunc f, const void *args, size_t s)
  * @param f function to call
  * @param argument to pass to f
  */
-FIBER_API void
-fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args);
+FIBER_API
+HU_NONNULL_PARAMS(1, 2, 3)
+void
+fiber_exec_on(HU_IN_NONNULL Fiber *active,
+              HU_INOUT_NONNULL Fiber *temp,
+              HU_IN_NONNULL FiberFunc f,
+              void *args);
 
+HU_WARN_UNUSED
 static inline bool
 fiber_is_toplevel(const Fiber *fiber)
 {
     return (fiber->state & FIBER_FS_TOPLEVEL) != 0;
 }
 
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
 static inline bool
-fiber_is_executing(const Fiber *fiber)
+fiber_is_executing(HU_IN_NONNULL const Fiber *fiber)
 {
     return (fiber->state & FIBER_FS_EXECUTING) != 0;
 }
 
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
 static inline bool
-fiber_is_alive(const Fiber *fiber)
+fiber_is_alive(HU_IN_NONNULL const Fiber *fiber)
 {
     return (fiber->state & FIBER_FS_ALIVE) != 0;
 }
 
+HU_NONNULL_PARAMS(1)
 static inline void
-fiber_set_alive(Fiber *fiber, bool alive)
+fiber_set_alive(HU_INOUT_NONNULL Fiber *fiber, bool alive)
 {
     if (alive)
         fiber->state |= FIBER_FS_ALIVE;
@@ -194,23 +218,29 @@ fiber_set_alive(Fiber *fiber, bool alive)
         fiber->state &= ~FIBER_FS_ALIVE;
 }
 
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
 static inline void *
-fiber_stack(const Fiber *fiber)
+fiber_stack(HU_IN_NONNULL const Fiber *fiber)
 {
     return fiber->stack;
 }
 
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
 static inline size_t
-fiber_stack_size(const Fiber *fiber)
+fiber_stack_size(HU_IN_NONNULL const Fiber *fiber)
 {
     return fiber->stack_size;
 }
 
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
 static inline size_t
-fiber_stack_free_size(const Fiber *fiber)
+fiber_stack_free_size(HU_IN_NONNULL const Fiber *fiber)
 {
-    return fiber->stack_size - (FIBER_CAST(char *, fiber->regs.sp) -
-                                FIBER_CAST(char *, fiber->stack));
+    return fiber->stack_size - (HU_STATIC_CAST(char *, fiber->regs.sp) -
+                                HU_STATIC_CAST(char *, fiber->stack));
 }
 
 #ifdef __cplusplus

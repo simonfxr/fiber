@@ -3,13 +3,14 @@
 #include "fiber_asm.h"
 
 #include <assert.h>
+#include <hu/annotations.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #if HU_OS_POSIX_P
-#include <sys/mman.h>
+#    include <sys/mman.h>
 #elif HU_OS_WINDOWS_P
-#include <Windows.h>
+#    include <Windows.h>
 #endif
 
 #define UNUSED(a) ((void) (a))
@@ -24,19 +25,26 @@ static const size_t ARG_ALIGNMENT = 8;
 static const size_t WORD_SIZE = sizeof(void *);
 static const size_t PAGE_SIZE = 4096;
 
+#if HU_HAVE_NONNULL_PARAMS_P || HU_HAVE_INOUT_NONNULL_P
+#    define NULL_CHECK(arg, msg)
+#else
+#    define NULL_CHECK(arg, msg) assert(arg &&msg)
+#endif
+
+#define error_abort(msg)                                                       \
+    do {                                                                       \
+        fprintf(stderr, "%s\n", msg);                                          \
+        abort();                                                               \
+    } while (0)
+
 static inline void *
 stack_align_n(void *sp, size_t n)
 {
     return (void *) ((uintptr_t) sp & ~(uintptr_t)(n - 1));
 }
 
-static inline void *
-stack_align(void *sp)
-{
-    return stack_align_n(sp, STACK_ALIGNMENT);
-}
-
-static inline bool
+HU_MAYBE_UNUSED
+bool
 is_stack_aligned(void *sp)
 {
     return ((uintptr_t) sp & (STACK_ALIGNMENT - 1)) == 0;
@@ -82,7 +90,7 @@ fiber_init(Fiber *fbr,
            FiberCleanupFunc cleanup,
            void *arg)
 {
-    assert(fbr && "Fiber can not be null");
+    NULL_CHECK(fbr, "Fiber cannot be NULL");
     fbr->stack = stack;
     fbr->stack_size = stack_size;
     fbr->alloc_stack = NULL;
@@ -112,7 +120,7 @@ alloc_pages(size_t npages)
 #elif HU_OS_WINDOWS_P
     return _aligned_malloc(npages * PAGE_SIZE, PAGE_SIZE);
 #else
-#error "BUG: platform not properly handled"
+#    error "BUG: platform not properly handled"
 #endif
 }
 
@@ -124,7 +132,7 @@ free_pages(void *p)
 #elif HU_OS_WINDOWS_P
     _aligned_free(p);
 #else
-#error "BUG: platform not properly handled"
+#    error "BUG: platform not properly handled"
 #endif
 }
 
@@ -139,7 +147,7 @@ protect_page(void *p, bool rw)
              p, PAGE_SIZE, rw ? PAGE_READWRITE : PAGE_NOACCESS, &old_protect) !=
            0;
 #else
-#error "BUG: platform not properly handled"
+#    error "BUG: platform not properly handled"
 #endif
 }
 
@@ -150,8 +158,8 @@ fiber_alloc(Fiber *fbr,
             void *arg,
             FiberFlags flags)
 {
+    NULL_CHECK(fbr, "Fiber cannot be NULL");
     flags &= FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI;
-    assert(fbr && "Fiber can not be null");
     fbr->stack_size = size;
     const size_t stack_size = size;
 
@@ -227,8 +235,8 @@ fiber_destroy(Fiber *fbr)
 void
 fiber_switch(Fiber *from, Fiber *to)
 {
-    assert(from && "Fiber cannot be NULL");
-    assert(to && "Fiber cannot be NULL");
+    NULL_CHECK(from, "Fiber cannot be NULL");
+    NULL_CHECK(to, "Fiber cannot be NULL");
 
     if (from == to)
         return;
@@ -242,7 +250,7 @@ fiber_switch(Fiber *from, Fiber *to)
 }
 
 #if hu_has_attribute(weak)
-#define HAVE_probe_stack_weak_dummy
+#    define HAVE_probe_stack_weak_dummy
 __attribute__((weak)) void
 _probe_stack_weak_dummy(volatile char *sp, size_t sz);
 
@@ -278,7 +286,7 @@ probe_stack(volatile char *sp0, size_t sz)
 void
 fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
 {
-    assert(fbr && "Fiber cannot be NULL");
+    NULL_CHECK(fbr, "Fiber cannot be NULL");
     assert(!fiber_is_executing(fbr));
 
     char *sp = fbr->regs.sp;
@@ -290,37 +298,25 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     if (hu_unlikely(s > PAGE_SIZE - 100))
         probe_stack(sp, s);
 
-    assert(is_stack_aligned(sp) && "1");
+    assert(is_stack_aligned(sp));
 
-#ifdef FIBER_HAVE_LR
     push(&sp, fbr->regs.lr);
-#endif
-
     push(&sp, fbr->regs.sp);
     push(&sp, f);
     push(&sp, *args);
 
-#ifndef FIBER_HAVE_LR
-    if (STACK_ALIGNMENT >= 8)
-        sp -= WORD_SIZE; // introduced to realign stack to 16 bytes
-#endif
-    assert(is_stack_aligned(sp) && "2");
+    assert(is_stack_aligned(sp));
 
-#ifdef FIBER_HAVE_LR
     fbr->regs.lr = fiber_asm_invoke;
-#else
-    push(&sp, fiber_asm_invoke);
-#endif
 
     fbr->regs.sp = (void *) sp;
-#undef PUSH
 }
 
 void
 fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
 {
-    assert(active && "Fiber cannot be NULL");
-    assert(temp && "Fiber cannot be NULL");
+    NULL_CHECK(active, "Fiber cannot be NULL");
+    NULL_CHECK(temp, "Fiber cannot be NULL");
     assert(fiber_is_executing(active));
 
     if (active == temp) {
@@ -335,29 +331,22 @@ fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
     }
 }
 
+HU_NORETURN
 static void
 fiber_guard(void *argsp)
 {
     FiberGuardArgs *args = (FiberGuardArgs *) argsp;
     args->fiber->state &= ~FIBER_FS_ALIVE;
     args->cleanup(args->fiber, args->arg);
-#ifndef NDEBUG
-    assert(0 && "ERROR: fiber cleanup returned");
-#else
-    fprintf(stderr, "ERROR: fiber cleanup returned\n");
-#endif
-    abort();
+    error_abort("ERROR: fiber cleanup returned");
 }
 
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
+HU_NORETURN
+HU_DSO_HIDDEN
 void
 fiber_align_check_failed(void)
 {
-#ifndef NDEBUG
-    assert(0 && "ERROR: fiber stack alignment check failed");
-#else
-    fprintf(stderr, "ERROR: fiber stack alignment check failed\n");
-#endif
-    abort();
+    error_abort("ERROR: fiber stack alignment check failed");
 }
 #endif
