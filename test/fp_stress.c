@@ -1,4 +1,6 @@
-#include "fiber/fiber.h"
+#ifndef FIBER_AMALGAMATED
+#    include "fiber/fiber.h"
+#endif
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -96,7 +98,7 @@ entry(void *args0)
     DEF_A(16, 17, 18, 19);
 
     for (int i = 0; i < args->n; ++i) {
-        for (int i = 0; i < 16; ++i) {
+        for (int j = 0; j < 16; ++j) {
             if (i & 1) {
                 MIX(0, 2, 4, 6);
                 MIX(1, 3, 5, 7);

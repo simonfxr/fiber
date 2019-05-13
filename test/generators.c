@@ -1,6 +1,8 @@
 #define __STDC_FORMAT_MACROS 1
 
-#include <fiber/fiber.h>
+#ifndef FIBER_AMALGAMATED
+#    include <fiber/fiber.h>
+#endif
 
 #include <assert.h>
 #include <inttypes.h>
@@ -81,7 +83,7 @@ gen_start(void *args0)
 static Generator *
 gen_new(const char *name, void (*f)(void *), void *args, size_t args_size)
 {
-    Generator *gen = calloc(1, sizeof *gen);
+    Generator *gen = hu_cxx_static_cast(Generator *, calloc(1, sizeof *gen));
     zero_value(&gen->result);
     gen->name = name;
     gen->id = gen_next_id++;

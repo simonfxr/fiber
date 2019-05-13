@@ -1,9 +1,11 @@
 #ifndef FIBER_H
 #define FIBER_H
 
-#include <hu/annotations.h>
-#include <hu/lang.h>
-#include <hu/objfmt.h>
+#ifndef FIBER_AMALGAMATED
+#    include <hu/annotations.h>
+#    include <hu/lang.h>
+#    include <hu/objfmt.h>
+#endif
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -11,20 +13,22 @@
 #include <string.h>
 
 #ifdef FIBER_SHARED
-#ifdef fiber_EXPORTS
-#define FIBER_API HU_DSO_EXPORT
+#    ifdef fiber_EXPORTS
+#        define FIBER_API HU_DSO_EXPORT
+#    else
+#        define FIBER_API HU_DSO_IMPORT
+#    endif
 #else
-#define FIBER_API HU_DSO_IMPORT
-#endif
-#else
-#define FIBER_API
+#    define FIBER_API
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <fiber/fiber_mach.h>
+#ifndef FIBER_AMALGAMATED
+#    include <fiber/fiber_mach.h>
+#endif
 
 typedef uint16_t FiberState;
 typedef uint16_t FiberFlags;
@@ -42,8 +46,8 @@ typedef struct Fiber
     FiberState state;
 } Fiber;
 
-#define FIBER_STATE_CONSTANT(x) HU_STATIC_CAST(FiberState, x)
-#define FIBER_FLAG_CONSTANT(x) HU_STATIC_CAST(FiberFlags, x)
+#define FIBER_STATE_CONSTANT(x) hu_static_cast(FiberState, x)
+#define FIBER_FLAG_CONSTANT(x) hu_static_cast(FiberFlags, x)
 
 #define FIBER_FS_EXECUTING FIBER_STATE_CONSTANT(1)
 #define FIBER_FS_TOPLEVEL FIBER_STATE_CONSTANT(2)
@@ -239,8 +243,8 @@ HU_NONNULL_PARAMS(1)
 static inline size_t
 fiber_stack_free_size(HU_IN_NONNULL const Fiber *fiber)
 {
-    return fiber->stack_size - (HU_STATIC_CAST(char *, fiber->regs.sp) -
-                                HU_STATIC_CAST(char *, fiber->stack));
+    return fiber->stack_size - (hu_static_cast(char *, fiber->regs.sp) -
+                                hu_static_cast(char *, fiber->stack));
 }
 
 #ifdef __cplusplus

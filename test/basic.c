@@ -1,4 +1,6 @@
-#include <fiber/fiber.h>
+#ifndef FIBER_AMALGAMATED
+#    include <fiber/fiber.h>
+#endif
 
 #include <assert.h>
 #include <stdio.h>

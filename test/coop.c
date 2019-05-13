@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <fiber/fiber.h>
+#ifndef FIBER_AMALGAMATED
+#    include <fiber/fiber.h>
+#endif
 
 #define STACK_SIZE ((size_t) 16 * 1024)
 
@@ -92,7 +94,7 @@ thread_cleanup_cont(void *args0)
 }
 
 static void
-fiber_guard(Fiber *self, void *arg)
+thread_guard(Fiber *self, void *arg)
 {
     Thread *th = (Thread *) arg;
     assert(the_thread);
@@ -105,7 +107,7 @@ fiber_guard(Fiber *self, void *arg)
     CleanupArgs *args;
 
     fiber_reserve_return(
-      &sched_thread->fiber, thread_cleanup_cont, (void *) &args, sizeof args);
+      &sched_thread->fiber, thread_cleanup_cont, (void **) &args, sizeof args);
     args->thread = th;
 
     Thread *next = th->next;
@@ -120,11 +122,11 @@ fiber_guard(Fiber *self, void *arg)
 static void
 thread_start(Sched *sched, void (*func)(void))
 {
-    Thread *th = malloc(sizeof *th);
+    Thread *th = hu_cxx_static_cast(Thread *, malloc(sizeof *th));
     th->sched = sched;
     th->id = sched->next_id++;
     (void) fiber_alloc(
-      &th->fiber, STACK_SIZE, fiber_guard, th, FIBER_FLAG_GUARD_LO);
+      &th->fiber, STACK_SIZE, thread_guard, th, FIBER_FLAG_GUARD_LO);
 
     ThreadArgs args;
     args.thread = th;
@@ -164,7 +166,7 @@ put_str(const char *str)
     fiber_exec_on(thread_fiber(the_thread),
                   &the_thread->sched->main_thread.fiber,
                   run_put_str,
-                  (void *) &str);
+                  (void **) &str);
 }
 
 typedef enum Message
