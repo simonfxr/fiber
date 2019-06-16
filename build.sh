@@ -24,7 +24,7 @@ case "$(uname -m)" in
     arm*) BITS32=1 ;;
 esac
 
-[[ $BITS32 || BITS64 ]] || {
+[[ $BITS32 || $BITS64 ]] || {
     echo "failed to detect 32 vs 64 bit architecture" >&2
     exit 1
 }
@@ -138,22 +138,20 @@ cmd_run() {
         local d="build/$bc"
         echo "************** $bc **************"
         for bin in test_basic test_coop test_generators test_fp_stress; do
-            "${d}/$bin" &> "${d}/${bin}.out" ||
+            "${d}/$bin" &> "${d}/${bin}.out" || {
                 echo "${d}/$bin exited non zero: $?" >&2
+                continue
+            }
+            local f="test/${bin}.out"
+            diff -u "${d}/${bin}.out" "$f" ||
+                echo "${d}/$bin output does not match" >&2
         done
     done
 }
 
-
 case "$1" in
-    configure)
-        cmd_configure "${@:2}"
-        ;;
-    build)
-        cmd_build "${@:2}"
-        ;;
-    run)
-        cmd_run "${@:2}"
+    configure|build|run)
+        "cmd_$1" "${@:2}"
         ;;
     *)
         echo "invalid args: $*" >&2

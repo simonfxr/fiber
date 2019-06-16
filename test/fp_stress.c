@@ -99,7 +99,7 @@ entry(void *args0)
 
     for (int i = 0; i < args->n; ++i) {
         for (int j = 0; j < 16; ++j) {
-            if (i & 1) {
+            if (j & 1) {
                 MIX(0, 2, 4, 6);
                 MIX(1, 3, 5, 7);
             } else {

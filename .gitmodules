@@ -1,3 +1,6 @@
 [submodule "deps/cxx-header-utils"]
 	path = deps/cxx-header-utils
 	url = https://github.com/simonfxr/cxx-header-utils
+[submodule "cmake/cmake-utils"]
+	path = cmake/cmake-utils
+	url = https://github.com/simonfxr/cmake-utils

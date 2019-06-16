@@ -9,53 +9,30 @@ if(FIBER_STANDALONE_PROJECT)
   project(fiber LANGUAGES C)
 endif()
 
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/cmake-utils/cmake-utils.cmake")
+
+cmu_configure()
+
 if(NOT DEFINED FIBER_SHARED)
   set(FIBER_SHARED "${BUILD_SHARED_LIBS}")
 endif()
 
 set(FIBER_SHARED "${FIBER_SHARED}" CACHE BOOL "build shared fiber library")
 
-set(FIBER_ASM_CHECK_ALIGNMENT True
+set(FIBER_ASM_CHECK_ALIGNMENT
+    True
     CACHE BOOL "add extra stack alignment checks to asm functions")
 
 set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
 
-set(FIBER_HAVE_LTO False)
-include(CheckIPOSupported OPTIONAL RESULT_VARIABLE HAVE_CHECK_IPO)
-if(HAVE_CHECK_IPO)
-  check_ipo_supported(RESULT FIBER_HAVE_LTO)
-endif()
+set(FIBER_HAVE_LTO ${CMU_HAVE_IPO})
 
 set(FIBER_LTO ${FIBER_HAVE_LTO} CACHE BOOL "enable lto")
 
-message(STATUS CMAKE_SYSTEM_PROCESSOR="${CMAKE_SYSTEM_PROCESSOR}")
-message(STATUS CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
-message(STATUS CMAKE_C_SIZEOF_DATA_PTR="${CMAKE_C_SIZEOF_DATA_PTR}")
-message(STATUS CMAKE_C_COMPILER_ID="${CMAKE_C_COMPILER_ID}")
-message(STATUS CMAKE_SYSTEM_NAME="${CMAKE_SYSTEM_NAME}")
-
-if(FIBER_M32 OR CMAKE_C_SIZEOF_DATA_PTR STREQUAL 4)
-  set(FIBER_BITS32 True)
-elseif(CMAKE_C_SIZEOF_DATA_PTR STREQUAL 8)
-  set(FIBER_BITS64 True)
-else()
-  message(ERROR "CMAKE_C_SIZEOF_DATA_PTR invalid: ${CMAKE_C_SIZEOF_DATA_PTR}")
-endif()
-
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|(^i.86$)")
-  set(FIBER_X86 True)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|^arm")
-  set(FIBER_ARM True)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv")
-  set(FIBER_RISCV True)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64le")
-  set(FIBER_PPCLE True)
-  set(FIBER_BITS64 True)
-else()
-  message(
-    ERROR
-    "fiber: architecture not supported: CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}"
-    )
+if(FIBER_M32 OR CMU_BITS_32)
+  set(FIBER_BITS_32 True)
+elseif(CMU_BITS_64)
+  set(FIBER_BITS_64 True)
 endif()
 
 set(cflags)
@@ -64,48 +41,39 @@ set(defines)
 set(ldflags)
 set(asm_lang "ASM")
 
-if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" AND FIBER_BITS32)
+if(CMU_OS_FREEBSD AND FIBER_BITS_32)
   list(APPEND defines -DFIBER_STACK_ALIGNMENT=4)
 endif()
 
-if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU|Intel")
+if(CMU_COMP_GNUC)
   list(APPEND priv_cflags -Wall -Wextra)
   if(FIBER_STANDALONE_PROJECT)
-    if(FIBER_X86
-       AND NOT
-           CMAKE_SYSTEM_NAME
-           STREQUAL
-           "FreeBSD")
-      list(APPEND cflags "-mfpmath=sse")
-    endif()
-    list(APPEND cflags "-ffp-contract=off")
+    list(APPEND cflags ${CMU_FLAGS_FP_IEEE})
   endif()
 endif()
-
-string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type)
 
 if(FIBER_ASM_CHECK_ALIGNMENT)
   list(APPEND defines "-DFIBER_ASM_CHECK_ALIGNMENT=1")
 endif()
 
 set(asm_sources)
-if(UNIX AND FIBER_X86 AND FIBER_BITS64)
+if(CMU_OS_POSIX AND CMU_ARCH_X86 AND FIBER_BITS_64)
   set(asm_sources src/fiber_asm_amd64_sysv.S)
-elseif(UNIX AND FIBER_X86 AND FIBER_BITS32)
+elseif(CMU_OS_POSIX AND CMU_ARCH_X86 AND FIBER_BITS_32)
   set(asm_sources src/fiber_asm_x86_cdecl.S)
-elseif(UNIX AND FIBER_ARM AND FIBER_BITS64)
+elseif(CMU_OS_POSIX AND CMU_ARCH_ARM AND FIBER_BITS_64)
   set(asm_sources src/fiber_asm_aarch64_apcs.S)
-elseif(UNIX AND FIBER_ARM AND FIBER_BITS32)
+elseif(CMU_OS_POSIX AND CMU_ARCH_ARM AND FIBER_BITS_32)
   set(asm_sources src/fiber_asm_arm32_eabi.S)
-elseif(WIN32 AND FIBER_X86 AND FIBER_BITS64)
-  if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+elseif(CMU_OS_WINDOWS AND CMU_ARCH_X86 AND FIBER_BITS_64)
+  if(CMU_COMP_MSVC)
     set(asm_lang "ASM_MASM")
     set(asm_sources src/fiber_asm_amd64_win64.asm)
-  elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU|Intel")
+  elseif(CMU_COMP_GNUC)
     set(asm_sources src/fiber_asm_amd64_win64.S)
   endif()
-elseif(WIN32 AND FIBER_X86 AND FIBER_BITS32)
-  if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+elseif(CMU_OS_WINDOWS AND CMU_ARCH_X86 AND FIBER_BITS_32)
+  if(CMU_COMP_MSVC)
     set(asm_lang "ASM_MASM")
     set(asm_sources src/fiber_asm_x86_win32.asm)
     set_source_files_properties(${asm_sources}
@@ -118,13 +86,13 @@ elseif(WIN32 AND FIBER_X86 AND FIBER_BITS32)
       "compiling fiber under X86 WIN32 only supported when using MSVC toolchain"
       )
   endif()
-elseif(UNIX AND FIBER_RISCV AND FIBER_BITS64)
+elseif(CMU_OS_POSIX AND CMU_ARCH_RISCV AND FIBER_BITS_64)
   set(asm_sources src/fiber_asm_riscv64_elf.S)
-elseif(UNIX AND FIBER_PPCLE AND FIBER_BITS64)
+elseif(CMU_OS_POSIX AND CMU_ARCH_PPC AND FIBER_BITS_64 AND CMU_LITTLE_ENDIAN)
   set(asm_sources src/fiber_asm_ppc64le_elf2.S)
 endif()
 
-if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+if(CMU_COMP_MSVC)
   # make sure it gets passed to the assembler
   list(APPEND priv_cflags "/nologo")
 endif()
@@ -148,14 +116,14 @@ if(NOT TARGET header-utils::header-utils)
   add_subdirectory(deps/cxx-header-utils)
 endif()
 
-set(fiber_lib_mode)
+set(_fiber_lib_mode)
 if(FIBER_SHARED)
-  set(fiber_lib_mode SHARED)
+  set(_fiber_lib_mode SHARED)
 else()
-  set(fiber_lib_mode STATIC)
+  set(_fiber_lib_mode STATIC)
 endif()
 
-add_library(fiber ${fiber_lib_mode} src/fiber.c ${asm_sources})
+add_library(fiber ${_fiber_lib_mode} ${asm_sources} src/fiber.c)
 target_include_directories(fiber PUBLIC include)
 target_include_directories(fiber PRIVATE src)
 target_link_libraries(fiber PUBLIC header-utils::header-utils)
@@ -182,12 +150,11 @@ if(FIBER_SHARED)
 endif()
 
 if(FIBER_STANDALONE_PROJECT)
-
   macro(add_test_exec tgt)
     add_executable(${tgt} ${ARGN})
     target_link_libraries(${tgt} fiber::fiber)
     target_compile_options(${tgt} PRIVATE ${cflags})
-    if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+    if(CMU_COMP_MSVC)
       target_compile_definitions(${tgt} PRIVATE _CRT_SECURE_NO_WARNINGS=1)
     endif()
     if(FIBER_LTO)
