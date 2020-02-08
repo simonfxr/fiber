@@ -68,7 +68,7 @@ typedef void(FIBER_CCONV *FiberCleanupFunc)(Fiber *, void *);
  * should never return! There is no stack frame where it could return to. In
  * practice this means that this function should switch to some other fiber
  * (usually the toplevel fiber).
- * @param fiber the fiber to create
+ * @param fbr the fiber to create
  * @param stack preallocated stack
  * @param stack_size size of preallocated stack
  * @param cleanup the initial function on the call stack
@@ -78,7 +78,7 @@ FIBER_API
 HU_NONNULL_PARAMS(1, 2, 4)
 HU_RETURNS_NONNULL
 Fiber *
-fiber_init(HU_OUT_NONNULL Fiber *fiber,
+fiber_init(HU_OUT_NONNULL Fiber *fbr,
            HU_INOUT_NONNULL void *stack,
            size_t stack_size,
            HU_IN_NONNULL FiberCleanupFunc cleanup,
@@ -87,18 +87,18 @@ fiber_init(HU_OUT_NONNULL Fiber *fiber,
 /**
  * initialize a toplevel Fiber, a toplevel Fiber represents an OS thread. Should
  * only be called once per OS Thread!
- * @param fiber the fiber to create
+ * @param fbr the fiber to create
  */
 FIBER_API
 HU_NONNULL_PARAMS(1)
 void
-fiber_init_toplevel(HU_OUT_NONNULL Fiber *fiber);
+fiber_init_toplevel(HU_OUT_NONNULL Fiber *fbr);
 
 /**
  * create a new Fiber by allocating a fresh stack, optionally with bottom or top
- * guard frames (each usually adds an overhead of 4kb). It is recommended to
- * pass FIBER_FLAG_GUARD_LO, to catch stack overflows. @see fiber_init()
- * @param fiber the fiber to create
+ * guard frames (each page usually adds an overhead of 4kb). It is recommended
+ * to pass FIBER_FLAG_GUARD_LO, to catch stack overflows. @see fiber_init()
+ * @param fbr the fiber to create
  * @param stack_size size of stack
  * @param cleanup the initial function on the call stack.
  * @param arg the arg to pass to cleanup when it is invoked
@@ -107,7 +107,7 @@ FIBER_API
 HU_NONNULL_PARAMS(1, 3)
 HU_NODISCARD
 bool
-fiber_alloc(HU_OUT_NONNULL Fiber *fiber,
+fiber_alloc(HU_OUT_NONNULL Fiber *fbr,
             size_t stack_size,
             HU_IN_NONNULL FiberCleanupFunc cleanup,
             void *arg,
@@ -115,12 +115,12 @@ fiber_alloc(HU_OUT_NONNULL Fiber *fiber,
 
 /**
  * Deallocate the stack, does nothing if created by fiber_init().
- * @param fiber the fiber to destroy
+ * @param fbr the fiber to destroy
  */
 FIBER_API
 HU_NONNULL_PARAMS(1)
 void
-fiber_destroy(HU_IN_NONNULL Fiber *fiber);
+fiber_destroy(HU_IN_NONNULL Fiber *fbr);
 
 /**
  * Switch from the current fiber to a different fiber by returning to the stack
@@ -136,7 +136,7 @@ fiber_switch(HU_INOUT_NONNULL Fiber *from, HU_INOUT_NONNULL Fiber *to);
 /**
  * Allocate a fresh stack frame at the top of a fiber with an argument buffer of
  * args_size. If the fiber is switched to it will execute the function.
- * @param fiber the fiber where the new frame will be allocated, cannot be the
+ * @param fbr the fiber where the new frame will be allocated, cannot be the
  * currently executing fiber!
  * @param f the function to place in the stack frame, it will be called with a
  * pointer to the beginning of the argument buffer
@@ -146,7 +146,7 @@ fiber_switch(HU_INOUT_NONNULL Fiber *from, HU_INOUT_NONNULL Fiber *to);
  */
 HU_NONNULL_PARAMS(1, 2, 3)
 FIBER_API void
-fiber_reserve_return(HU_INOUT_NONNULL Fiber *fiber,
+fiber_reserve_return(HU_INOUT_NONNULL Fiber *fbr,
                      HU_IN_NONNULL FiberFunc f,
                      HU_OUT_NONNULL void **args_dest,
                      size_t args_size);
@@ -154,7 +154,7 @@ fiber_reserve_return(HU_INOUT_NONNULL Fiber *fiber,
  * similar to @see fiber_reserve_return(), instead of returning the pointer to
  * the buffer, it will copy the contents into the stack allocated argument
  * buffer
- * @param fiber where to allocate the fresh stack frame
+ * @param fbr where to allocate the fresh stack frame
  * @param f function to place into the stack frame
  * @param args buffer to copy onto the stack frame
  * @param args_size size of argument buffer to copy
@@ -191,60 +191,60 @@ fiber_exec_on(HU_IN_NONNULL Fiber *active,
 
 HU_WARN_UNUSED
 static inline bool
-fiber_is_toplevel(const Fiber *fiber)
+fiber_is_toplevel(const Fiber *fbr)
 {
-    return (fiber->state & FIBER_FS_TOPLEVEL) != 0;
+    return (fbr->state & FIBER_FS_TOPLEVEL) != 0;
 }
 
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
 static inline bool
-fiber_is_executing(HU_IN_NONNULL const Fiber *fiber)
+fiber_is_executing(HU_IN_NONNULL const Fiber *fbr)
 {
-    return (fiber->state & FIBER_FS_EXECUTING) != 0;
+    return (fbr->state & FIBER_FS_EXECUTING) != 0;
 }
 
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
 static inline bool
-fiber_is_alive(HU_IN_NONNULL const Fiber *fiber)
+fiber_is_alive(HU_IN_NONNULL const Fiber *fbr)
 {
-    return (fiber->state & FIBER_FS_ALIVE) != 0;
+    return (fbr->state & FIBER_FS_ALIVE) != 0;
 }
 
 HU_NONNULL_PARAMS(1)
 static inline void
-fiber_set_alive(HU_INOUT_NONNULL Fiber *fiber, bool alive)
+fiber_set_alive(HU_INOUT_NONNULL Fiber *fbr, bool alive)
 {
     if (alive)
-        fiber->state |= FIBER_FS_ALIVE;
+        fbr->state |= FIBER_FS_ALIVE;
     else
-        fiber->state &= ~FIBER_FS_ALIVE;
+        fbr->state &= ~FIBER_FS_ALIVE;
 }
 
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
 static inline void *
-fiber_stack(HU_IN_NONNULL const Fiber *fiber)
+fiber_stack(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fiber->stack;
+    return fbr->stack;
 }
 
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
 static inline size_t
-fiber_stack_size(HU_IN_NONNULL const Fiber *fiber)
+fiber_stack_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fiber->stack_size;
+    return fbr->stack_size;
 }
 
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
 static inline size_t
-fiber_stack_free_size(HU_IN_NONNULL const Fiber *fiber)
+fiber_stack_free_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fiber->stack_size - (hu_static_cast(char *, fiber->regs.sp) -
-                                hu_static_cast(char *, fiber->stack));
+    return fbr->stack_size - (hu_static_cast(char *, fbr->regs.sp) -
+                              hu_static_cast(char *, fbr->stack));
 }
 
 #ifdef __cplusplus

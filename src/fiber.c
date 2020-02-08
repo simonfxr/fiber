@@ -89,7 +89,7 @@ typedef struct
 
 HU_NORETURN
 static void
-fiber_guard(void *);
+fiber_guard(void *fbr);
 
 static void
 fiber_init_(Fiber *fbr, FiberCleanupFunc cleanup, void *arg)
@@ -324,7 +324,10 @@ probe_stack(volatile char *sp0, size_t sz, size_t pgsz)
 }
 
 void
-fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
+fiber_reserve_return(Fiber *fbr,
+                     FiberFunc f,
+                     void **args_dest,
+                     size_t args_size)
 {
     NULL_CHECK(fbr, "Fiber cannot be NULL");
     assert(!fiber_is_executing(fbr));
@@ -332,19 +335,19 @@ fiber_reserve_return(Fiber *fbr, FiberFunc f, void **args, size_t s)
     char *sp = hu_cxx_static_cast(char *, fbr->regs.sp);
     size_t arg_align =
       ARG_ALIGNMENT > STACK_ALIGNMENT ? ARG_ALIGNMENT : STACK_ALIGNMENT;
-    sp = stack_align_n(sp - s, arg_align);
-    *args = sp;
+    sp = stack_align_n(sp - args_size, arg_align);
+    *args_dest = sp;
 
     size_t pgsz = get_page_size();
-    if (hu_unlikely(s > pgsz - 100))
-        probe_stack(sp, s, pgsz);
+    if (hu_unlikely(args_size > pgsz - 100))
+        probe_stack(sp, args_size, pgsz);
 
     assert(is_stack_aligned(sp));
 
     push(&sp, fbr->regs.lr);
     push(&sp, fbr->regs.sp);
     push(&sp, hu_cxx_reinterpret_cast(void *, f));
-    push(&sp, *args);
+    push(&sp, *args_dest);
 
     assert(is_stack_aligned(sp));
 
