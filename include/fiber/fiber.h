@@ -103,9 +103,9 @@ fiber_init_toplevel(HU_OUT_NONNULL Fiber *fbr);
  * @param cleanup the initial function on the call stack.
  * @param arg the arg to pass to cleanup when it is invoked
  */
+HU_NODISCARD
 FIBER_API
 HU_NONNULL_PARAMS(1, 3)
-HU_NODISCARD
 bool
 fiber_alloc(HU_OUT_NONNULL Fiber *fbr,
             size_t stack_size,
