@@ -243,8 +243,16 @@ HU_NONNULL_PARAMS(1)
 static inline size_t
 fiber_stack_free_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fbr->stack_size - (hu_static_cast(char *, fbr->regs.sp) -
-                              hu_static_cast(char *, fbr->stack));
+    return hu_static_cast(char *, fbr->regs.sp) -
+           hu_static_cast(char *, fbr->stack);
+}
+
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
+static inline size_t
+fiber_stack_used_size(HU_IN_NONNULL const Fiber *fbr)
+{
+    return fbr->stack_size - fiber_stack_free_size(fbr);
 }
 
 #ifdef __cplusplus

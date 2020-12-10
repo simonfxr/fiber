@@ -126,6 +126,7 @@ fiber_init(Fiber *fbr,
 void
 fiber_init_toplevel(Fiber *fbr)
 {
+    NULL_CHECK(fbr, "Fiber cannot be NULL");
     fbr->stack = NULL;
     fbr->stack_size = (size_t) -1;
     fbr->alloc_stack = NULL;

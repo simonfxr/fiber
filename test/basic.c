@@ -71,6 +71,8 @@ main()
     args->self = &fiber;
     args->caller = &toplevel;
     fiber_switch(&toplevel, &fiber);
+    assert(fiber_stack_used_size(&fiber) < 1024);
+    assert(fiber_stack_free_size(&fiber) > STACK_SIZE - 1024);
     puts("in main()");
     fiber_switch(&toplevel, &fiber);
     fiber_destroy(&fiber);
