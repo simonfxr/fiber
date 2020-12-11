@@ -19,9 +19,11 @@ endif()
 
 set(FIBER_SHARED "${FIBER_SHARED}" CACHE BOOL "build shared fiber library")
 
-set(FIBER_ASM_CHECK_ALIGNMENT
-    True
-    CACHE BOOL "add extra stack alignment checks to asm functions")
+set(
+  FIBER_ASM_CHECK_ALIGNMENT
+  True
+  CACHE BOOL "add extra stack alignment checks to asm functions"
+)
 
 set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
 
@@ -76,15 +78,17 @@ elseif(CMU_OS_WINDOWS AND CMU_ARCH_X86 AND FIBER_BITS_32)
   if(CMU_COMP_MSVC)
     set(asm_lang "ASM_MASM")
     set(asm_sources src/fiber_asm_x86_win32.asm)
-    set_source_files_properties(${asm_sources}
-                                PROPERTIES
-                                COMPILE_OPTIONS
-                                "/safeseh")
+    set_source_files_properties(
+      ${asm_sources}
+      PROPERTIES
+      COMPILE_OPTIONS
+      "/safeseh"
+    )
   else()
     message(
       ERROR
       "compiling fiber under X86 WIN32 only supported when using MSVC toolchain"
-      )
+    )
   endif()
 elseif(CMU_OS_POSIX AND CMU_ARCH_RISCV AND FIBER_BITS_64)
   set(asm_sources src/fiber_asm_riscv64_elf.S)
@@ -156,21 +160,6 @@ if(FIBER_OBJECT)
 endif()
 
 if(FIBER_STANDALONE_PROJECT)
-  macro(add_test_exec tgt)
-    add_executable(${tgt} ${ARGN})
-    target_link_libraries(${tgt} fiber::fiber)
-    target_compile_options(${tgt} PRIVATE ${cflags})
-    if(CMU_COMP_MSVC)
-      target_compile_definitions(${tgt} PRIVATE _CRT_SECURE_NO_WARNINGS=1)
-    endif()
-    if(FIBER_LTO)
-      set_property(TARGET ${tgt} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    endif()
-  endmacro()
-
-  add_test_exec(hello test/hello.c)
-  add_test_exec(test_basic test/basic.c)
-  add_test_exec(test_coop test/coop.c)
-  add_test_exec(test_generators test/generators.c)
-  add_test_exec(test_fp_stress test/fp_stress.c)
+  enable_testing()
+  add_subdirectory(test)
 endif()

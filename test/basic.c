@@ -2,8 +2,8 @@
 #    include <fiber/fiber.h>
 #endif
 
-#include <assert.h>
-#include <stdio.h>
+#include "test_pre.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,7 +14,6 @@ fiber_cleanup(Fiber *fiber, void *args)
 {
     (void) fiber;
     (void) args;
-    assert(0 && "fiber_cleanup should not be called");
     abort();
 }
 
@@ -27,7 +26,7 @@ typedef struct
 static void
 run_put_str(void *arg)
 {
-    puts((const char *) arg);
+    println((const char *) arg);
 }
 
 static void
@@ -40,13 +39,13 @@ static void
 fiber_entry(void *argsp)
 {
     FiberArgs *args = (FiberArgs *) argsp;
-    puts("fiber_entry()");
+    println("fiber_entry()");
     fiber_switch(args->self, args->caller);
 
     put_str(args->self, args->caller, "some string");
     put_str(args->self, args->caller, "some other string");
 
-    puts("again fiber_entry()");
+    println("again fiber_entry()");
     char *msg;
     size_t sz = 64 * 1024;
     fiber_reserve_return(args->caller, run_put_str, (void **) &msg, sz);
@@ -56,8 +55,9 @@ fiber_entry(void *argsp)
 }
 
 int
-main()
+main(int argc, char *argv[])
 {
+    test_main_begin(&argc, &argv);
     Fiber toplevel;
     fiber_init_toplevel(&toplevel);
     Fiber fiber;
@@ -71,10 +71,13 @@ main()
     args->self = &fiber;
     args->caller = &toplevel;
     fiber_switch(&toplevel, &fiber);
-    assert(fiber_stack_used_size(&fiber) < 1024);
-    assert(fiber_stack_free_size(&fiber) > STACK_SIZE - 1024);
-    puts("in main()");
+    require(fiber_stack_used_size(&fiber) < 1024);
+    require(fiber_stack_free_size(&fiber) > STACK_SIZE - 1024);
+    require(fiber_stack_free_size(&fiber) < STACK_SIZE);
+    println("in main()");
     fiber_switch(&toplevel, &fiber);
     fiber_destroy(&fiber);
+
+    test_main_end();
     return 0;
 }

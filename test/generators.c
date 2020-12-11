@@ -4,7 +4,8 @@
 #    include <fiber/fiber.h>
 #endif
 
-#include <assert.h>
+#include "test_pre.h"
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -69,11 +70,11 @@ gen_start(void *args0)
 {
     GeneratorArgs *args = (GeneratorArgs *) args0;
     Generator *gen = active_context.gen;
-    assert(gen);
-    printf("[Generator[%d] %s] STARTING\n", gen->id, gen->name);
+    require(gen);
+    fprintf(out, "[Generator[%d] %s] STARTING\n", gen->id, gen->name);
     args->entry(args->args);
     gen->done = true;
-    printf("[Generator[%d] %s] FINISH\n", gen->id, gen->name);
+    fprintf(out, "[Generator[%d] %s] FINISH\n", gen->id, gen->name);
     free(args->args);
     fiber_switch(active_context.fiber, active_context.caller);
     // noreturn
@@ -104,7 +105,7 @@ gen_new(const char *name, void (*f)(void *), void *args, size_t args_size)
 static void
 gen_init_toplevel(Fiber *fiber)
 {
-    assert(!active_context.fiber);
+    require(!active_context.fiber);
     fiber_init_toplevel(fiber);
     active_context.fiber = fiber;
     active_context.gen = NULL;
@@ -133,11 +134,11 @@ static void
 gen_close(Generator *gen)
 {
     if (!gen->done) {
-        assert(!gen->should_finish);
+        require(!gen->should_finish);
         gen->should_finish = true;
         Value v;
         gen_next(gen, &v);
-        assert(gen->done);
+        require(gen->done);
     }
     fiber_destroy(&gen->fiber);
     free(gen);
@@ -151,14 +152,14 @@ gen_yield(const Value *v)
     active_context.gen = NULL;
     active_context.caller = NULL;
     cur.gen->result = *v;
-    printf("[Generator[%d] %s] YIELD\n", cur.gen->id, cur.gen->name);
+    fprintf(out, "[Generator[%d] %s] YIELD\n", cur.gen->id, cur.gen->name);
     fiber_switch(cur.fiber, cur.caller);
 }
 
 static bool
 gen_should_finish()
 {
-    assert(active_context.gen);
+    require(active_context.gen);
     return active_context.gen->should_finish;
 }
 
@@ -250,13 +251,16 @@ is_odd_u64(const Value *v)
 }
 
 int
-main()
+main(int argc, char *argv[])
 {
+    test_main_begin(&argc, &argv);
     Fiber toplevel;
     gen_init_toplevel(&toplevel);
     Generator *gen = gen_take(20, gen_filter(is_odd_u64, gen_fibs()));
     Value v;
     while (gen_next(gen, &v))
-        printf("[Main] value: %" PRIu64 "\n", v.u64);
+        fprintf(out, "[Main] value: %" PRIu64 "\n", v.u64);
     gen_close(gen);
+    test_main_end();
+    return 0;
 }

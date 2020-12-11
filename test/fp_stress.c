@@ -2,6 +2,8 @@
 #    include "fiber/fiber.h"
 #endif
 
+#include "test_pre.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,14 +52,14 @@ double A[20];
 
 #define MIX(i, j, k, l) MIX_(CAT(a, i), CAT(a, j), CAT(a, k), CAT(a, l))
 
-#define PRINT1(i) printf("a%02d=%+.13le ", i, A[i])
+#define PRINT1(i) fprintf(out, "a%02d=%+.13le ", i, A[i])
 
 #define PRINT(i, j, k, l)                                                      \
     PRINT1(i);                                                                 \
     PRINT1(j);                                                                 \
     PRINT1(k);                                                                 \
     PRINT1(l);                                                                 \
-    puts("")
+    println("")
 
 #define MAP(F)                                                                 \
     do {                                                                       \
@@ -82,9 +84,9 @@ typedef struct
 static void
 print(int id)
 {
-    printf("Fiber[%d]\n", id);
+    fprintf(out, "Fiber[%d]\n", id);
     MAP(PRINT);
-    puts("");
+    println("");
 }
 
 static void
@@ -145,8 +147,9 @@ setup_fiber(Fiber *caller, Fiber *fiber, Args **args, int id)
 }
 
 int
-main()
+main(int argc, char *argv[])
 {
+    test_main_begin(&argc, &argv);
 #if HU_OS_WINDOWS_P && defined(_TWO_DIGIT_EXPONENT)
     _set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
@@ -167,5 +170,6 @@ main()
     }
     fiber_destroy(&fiber1);
     fiber_destroy(&fiber2);
+    test_main_end();
     return 0;
 }

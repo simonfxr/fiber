@@ -1,10 +1,11 @@
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #ifndef FIBER_AMALGAMATED
 #    include <fiber/fiber.h>
 #endif
+
+#include "test_pre.h"
+
+#include <stdio.h>
+#include <stdlib.h>
 
 #define STACK_SIZE ((size_t) 16 * 1024)
 
@@ -59,8 +60,8 @@ static void
 thread_switch(Thread *from, Thread *to)
 {
     Sched *sched = from->sched;
-    assert(sched->running == from);
-    assert(the_thread == from);
+    require(sched->running == from);
+    require(the_thread == from);
 
     if (sched->fuel > 0)
         --sched->fuel;
@@ -88,7 +89,7 @@ static void
 thread_cleanup_cont(void *args0)
 {
     CleanupArgs *args = (CleanupArgs *) args0;
-    printf("[Scheduler] thread exited: %d\n", args->thread->id);
+    fprintf(out, "[Scheduler] thread exited: %d\n", args->thread->id);
     fiber_destroy(&args->thread->fiber);
     free(args->thread);
 }
@@ -97,9 +98,9 @@ static void
 thread_guard(Fiber *self, void *arg)
 {
     Thread *th = (Thread *) arg;
-    assert(the_thread);
-    assert(th == the_thread);
-    assert(self == &th->fiber);
+    require(the_thread);
+    require(th == the_thread);
+    require(self == &th->fiber);
     (void) self;
 
     Sched *sched = th->sched;
@@ -157,7 +158,7 @@ static void
 run_put_str(void *arg)
 {
     const char *str = *(const char **) arg;
-    puts(str);
+    println(str);
 }
 
 static void
@@ -185,14 +186,14 @@ worker(void)
     int my_id = next_worker_id++;
     int work = 13 + ((my_id * 17) % 11);
     unsigned h = 42;
-    printf("[Worker %d] started, work=%d\n", my_id, work);
+    fprintf(out, "[Worker %d] started, work=%d\n", my_id, work);
     while (!shutting_down() && work-- > 0) {
         h ^= (unsigned) work;
         h = (h << 13) | (h >> 19);
         h *= 1337;
         yield();
     }
-    printf("[Worker %d] exiting, result: %u\n", my_id, h);
+    fprintf(out, "[Worker %d] exiting, result: %u\n", my_id, h);
 }
 
 static void
@@ -223,11 +224,11 @@ thread2(void)
         case MsgNone:
             break;
         case MsgPing:
-            printf("[Thread 2] received ping: %d\n", tok);
+            fprintf(out, "[Thread 2] received ping: %d\n", tok);
             message = MsgNone;
             break;
         case MsgFork:
-            printf("[Thread 2] forking worker: %d\n", tok);
+            fprintf(out, "[Thread 2] forking worker: %d\n", tok);
             thread_start(the_thread->sched, worker);
             message = MsgNone;
             break;
@@ -265,17 +266,18 @@ execute(Sched *sched)
 
         if (sched->fuel == 0 && !sched->shutdown_signal) {
             sched->shutdown_signal = true;
-            printf("[Scheduler] sending shutdown signal\n");
+            println("[Scheduler] sending shutdown signal");
         }
     }
 
-    printf("[Scheduler] all threads exited\n");
+    println("[Scheduler] all threads exited");
     the_thread = NULL;
 }
 
 int
-main(void)
+main(int argc, char *argv[])
 {
+    test_main_begin(&argc, &argv);
     Sched s;
     sched_init(&s);
     s.fuel = 1000;
@@ -286,5 +288,6 @@ main(void)
 
     execute(&s);
 
+    test_main_end();
     return 0;
 }
