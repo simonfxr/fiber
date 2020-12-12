@@ -89,7 +89,7 @@ add_build_config() {
 
 for cc in "${ccs[@]}"; do
     bit_modes=( "$native_bits" )
-    #compiler_supports_m32 "$cc" && bit_modes+=( 32 )
+    compiler_supports_m32 "$cc" && bit_modes+=( 32 )
     for bits in "${bit_modes[@]}"; do
         if [[ $cc = cl && $bits = 64 ]]; then
             { cl 2>&1 | grep "x64"; } || bits=32

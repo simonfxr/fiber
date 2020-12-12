@@ -24,11 +24,21 @@
   .endm
 
 FUNC(fiber_asm_switch):
-  pop eax
-  mov edx, [esp]
-  mov ecx, [esp+4]
-  .set i, 0
-  .irp r, esp, eax, ebp, ebx, edi, esi
+  mov edx, [esp+4]
+  lea ecx, [esp+4]
+  sub ecx, [edx]
+  mov [edx+4*1], ecx
+
+  mov ecx, [esp+8]
+  mov eax, [ecx]
+  add eax, [ecx+4*1]
+  xchg esp, eax
+  mov eax, [eax]
+
+  check_stack_alignment
+
+  .set i, 2
+  .irp r, eax, ebp, ebx, edi, esi
     mov [edx+4*i], \r
     mov \r, [ecx+4*i]
     .set i, i+1
@@ -37,11 +47,12 @@ FUNC(fiber_asm_switch):
 END_FUNC(fiber_asm_switch)
 
 FUNC(fiber_asm_invoke):
-  mov eax, [esp+4]
   check_stack_alignment
-  call eax
-  mov eax, [esp+12]
-  mov esp, [esp+8]
+  add [esp], esp
+  call [esp+4]
+  mov eax, [esp+8]
+  add esp, [esp+12]
+  check_stack_alignment
   jmp eax
 END_FUNC(fiber_asm_invoke)
 

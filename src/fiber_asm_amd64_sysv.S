@@ -38,9 +38,8 @@ FUNC(fiber_asm_switch):
 
   check_stack_alignment
 
-  mov rcx, [rdi]
   mov rdx, rsp
-  sub rdx, rcx
+  sub rdx, [rdi]
   mov [rdi + 8 * 1], rdx
 
   mov rcx, [rsi]
