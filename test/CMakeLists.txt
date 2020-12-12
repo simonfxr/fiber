@@ -41,5 +41,6 @@ add_test_exec(hello hello.c)
 
 add_test_run(basic basic.c)
 add_test_run(coop coop.c)
+add_test_run(coop_shared coop_shared.c)
 add_test_run(generators generators.c)
 add_test_run(fp_stress fp_stress.c)
