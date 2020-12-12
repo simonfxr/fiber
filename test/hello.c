@@ -32,7 +32,7 @@ int
 main()
 {
     Fiber main_fiber;
-    fiber_init_toplevel(&main_fiber);
+    fiber_init_toplevel(&main_fiber, NULL);
     Fiber crt;
     /* allocate a stack of 16kb, additionally add an unmapped page to detect
      * overflows */

@@ -103,10 +103,10 @@ gen_new(const char *name, void (*f)(void *), void *args, size_t args_size)
 }
 
 static void
-gen_init_toplevel(Fiber *fiber)
+gen_init_toplevel(Fiber *fiber, void *addr)
 {
     require(!active_context.fiber);
-    fiber_init_toplevel(fiber);
+    fiber_init_toplevel(fiber, addr);
     active_context.fiber = fiber;
     active_context.gen = NULL;
     active_context.caller = NULL;
@@ -255,7 +255,7 @@ main(int argc, char *argv[])
 {
     test_main_begin(&argc, &argv);
     Fiber toplevel;
-    gen_init_toplevel(&toplevel);
+    gen_init_toplevel(&toplevel, &argc);
     Generator *gen = gen_take(20, gen_filter(is_odd_u64, gen_fibs()));
     Value v;
     while (gen_next(gen, &v))

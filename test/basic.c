@@ -76,7 +76,7 @@ main(int argc, char *argv[])
 {
     test_main_begin(&argc, &argv);
     Fiber toplevel;
-    fiber_init_toplevel(&toplevel);
+    fiber_init_toplevel(&toplevel, &argc);
     Fiber fiber;
     (void) fiber_alloc(&fiber,
                        STACK_SIZE,

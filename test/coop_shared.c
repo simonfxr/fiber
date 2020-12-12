@@ -171,8 +171,6 @@ trampoline_run(void *null)
 
     Fiber *main = thread_fiber(&sched->main_thread);
     char *e_stack_base = fiber_stack_base(main);
-    main->_stack = malloc(STACK_SIZE);
-    main->_stack_size = STACK_SIZE;
     fiber_switch(&sched->trampoline_fiber, thread_fiber(&sched->main_thread));
 
     for (;;) {
@@ -203,7 +201,7 @@ trampoline_run(void *null)
 }
 
 static void
-sched_init(Sched *s)
+sched_init(Sched *s, void *addr)
 {
     s->main_thread.prev = &s->main_thread;
     s->main_thread.next = &s->main_thread;
@@ -211,7 +209,9 @@ sched_init(Sched *s)
 
     the_thread = &s->main_thread;
 
-    fiber_init_toplevel(&s->main_thread.fiber);
+    fiber_init_toplevel(&s->main_thread.fiber, addr);
+    s->main_thread.fiber._stack = malloc(STACK_SIZE);
+    s->main_thread.fiber._stack_size = STACK_SIZE;
 
     (void) fiber_alloc(&s->trampoline_fiber,
                        STACK_SIZE,
@@ -343,7 +343,7 @@ main(int argc, char *argv[])
 {
     test_main_begin(&argc, &argv);
     Sched *s = &the_sched;
-    sched_init(s);
+    sched_init(s, &argc);
     s->fuel = 1000;
 
     thread_start(s, thread1);

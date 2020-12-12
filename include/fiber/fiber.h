@@ -92,7 +92,7 @@ fiber_init(HU_OUT_NONNULL Fiber *fbr,
 FIBER_API
 HU_NONNULL_PARAMS(1)
 void
-fiber_init_toplevel(HU_OUT_NONNULL Fiber *fbr);
+fiber_init_toplevel(HU_OUT_NONNULL Fiber *fbr, void *addr);
 
 /**
  * create a new Fiber by allocating a fresh stack, optionally with bottom or top
@@ -248,12 +248,21 @@ fiber_stack_used_size(HU_IN_NONNULL const Fiber *fbr)
 
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
+static inline intptr_t
+fiber_stack_used_sizei(HU_IN_NONNULL const Fiber *fbr)
+{
+    return (intptr_t) sizeof(void *) - fbr->_regs.sp;
+}
+
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
 static inline size_t
 fiber_stack_free_size(HU_IN_NONNULL const Fiber *fbr)
 {
     return fbr->_stack_size - fiber_stack_used_size(fbr);
 }
 
+FIBER_API
 HU_CONST_FN
 HU_WARN_UNUSED
 size_t

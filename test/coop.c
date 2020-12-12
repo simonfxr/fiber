@@ -146,7 +146,7 @@ sched_init(Sched *s)
     s->main_thread.prev = &s->main_thread;
     s->main_thread.next = &s->main_thread;
     s->main_thread.sched = s;
-    fiber_init_toplevel(&s->main_thread.fiber);
+    fiber_init_toplevel(&s->main_thread.fiber, NULL);
 
     s->running = &s->main_thread;
     s->done = 0;

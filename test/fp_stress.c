@@ -154,7 +154,7 @@ main(int argc, char *argv[])
     _set_output_format(_TWO_DIGIT_EXPONENT);
 #endif
     Fiber toplevel;
-    fiber_init_toplevel(&toplevel);
+    fiber_init_toplevel(&toplevel, NULL);
     Fiber fiber1;
     Args *args1;
     setup_fiber(&toplevel, &fiber1, &args1, 1);

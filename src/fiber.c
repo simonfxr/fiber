@@ -59,6 +59,16 @@ static const size_t ARG_ALIGNMENT = 8;
         abort();                                                               \
     } while (0)
 
+#define require(x)                                                             \
+    if (hu_unlikely(!(x))) {                                                   \
+        fprintf(stderr,                                                        \
+                "requirement not met: %s at %s:%d\n",                          \
+                HU_TOSTR(x),                                                   \
+                __FILE__,                                                      \
+                __LINE__);                                                     \
+        abort();                                                               \
+    }
+
 static inline char *
 stack_align_n(char *sp, size_t n)
 {
@@ -106,9 +116,9 @@ fiber_init_(Fiber *fbr, FiberCleanupFunc cleanup, void *arg)
 {
     fbr->_regs.lr = NULL;
     fbr->_regs.base = fiber_stack_compute_base(fbr->_stack, fbr->_stack_size);
-    assert(fbr->_regs.base);
+    require(fbr->_regs.base);
     fbr->_regs.sp = 0;
-    assert(fiber_stack_used_size(fbr) <= sizeof(void *));
+    require(fiber_stack_used_size(fbr) <= sizeof(void *));
 
     FiberGuardArgs *args;
     fiber_reserve_return(fbr, fiber_guard, (void **) &args, sizeof *args);
@@ -244,8 +254,8 @@ fail:
 void
 fiber_destroy(Fiber *fbr)
 {
-    assert(!fiber_is_executing(fbr));
-    assert(!fiber_is_toplevel(fbr));
+    require(!fiber_is_executing(fbr));
+    require(!fiber_is_toplevel(fbr));
 
     if (!fbr->_alloc_stack)
         return;
@@ -283,9 +293,9 @@ fiber_switch(Fiber *from, Fiber *to)
     if (from == to)
         return;
 
-    assert(fiber_is_executing(from));
-    assert(!fiber_is_executing(to));
-    assert(fiber_is_alive(to));
+    require(fiber_is_executing(from));
+    require(!fiber_is_executing(to));
+    require(fiber_is_alive(to));
     from->_state &= ~FIBER_FS_EXECUTING;
     to->_state |= FIBER_FS_EXECUTING;
     fiber_asm_switch(&from->_regs, &to->_regs);
@@ -340,10 +350,12 @@ read_sp(volatile uintptr_t *stack_val)
 }
 
 void
-fiber_init_toplevel(Fiber *fbr)
+fiber_init_toplevel(Fiber *fbr, void *addr)
 {
-    uintptr_t stack_val;
-    char *sp_base = stack_align_n(read_sp(&stack_val) + 128, STACK_ALIGNMENT);
+    uintptr_t val = 0;
+    if (!addr)
+        addr = &val;
+    char *sp_base = stack_align_n(read_sp(addr), STACK_ALIGNMENT);
 
     NULL_CHECK(fbr, "Fiber cannot be NULL");
 
@@ -362,7 +374,7 @@ fiber_init_toplevel(Fiber *fbr)
     fbr->_alloc_stack = NULL;
     fbr->_regs.lr = NULL;
     fbr->_regs.base = fiber_stack_compute_base(fbr->_stack, fbr->_stack_size);
-    assert(fbr->_regs.base);
+    require(fbr->_regs.base);
     fbr->_regs.sp = 0; // does not really matter
     fbr->_state = FIBER_FS_ALIVE | FIBER_FS_TOPLEVEL | FIBER_FS_EXECUTING;
 }
@@ -383,7 +395,7 @@ fiber_reserve_return(Fiber *fbr,
                      size_t args_size)
 {
     NULL_CHECK(fbr, "Fiber cannot be NULL");
-    assert(!fiber_is_executing(fbr));
+    require(!fiber_is_executing(fbr));
 
     char *sp0 = spabs(fbr, fbr->_regs.sp);
     char *sp = sp0;
@@ -392,20 +404,23 @@ fiber_reserve_return(Fiber *fbr,
     sp = stack_align_n(sp - args_size, arg_align);
     *args_dest = sp;
 
-    assert(fiber_is_toplevel(fbr) || ((char *) *args_dest + args_size <=
-                                      (char *) fbr->_stack + fbr->_stack_size));
+    require(fiber_is_toplevel(fbr) ||
+            ((char *) *args_dest + args_size <=
+             (char *) fbr->_stack + fbr->_stack_size));
 
-    assert(fbr->_regs.sp <= 0);
+    require(((char *) fbr->_stack < fbr->_regs.base &&
+             fbr->_regs.base <= (char *) fbr->_stack + fbr->_stack_size) ||
+            fbr->_regs.sp <= 0);
 
     size_t pgsz = get_page_size();
     if (hu_unlikely(args_size > pgsz - 100))
         probe_stack(sp, args_size, pgsz);
 
-    assert(is_stack_aligned(sp));
+    require(is_stack_aligned(sp));
 
     InvocationFrame *iframe;
     sp -= sizeof *iframe;
-    assert(is_stack_aligned(sp));
+    require(is_stack_aligned(sp));
 
     iframe = (void *) sp;
     iframe->args_adjust = (char *) *args_dest - sp;
@@ -423,12 +438,12 @@ fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
 {
     NULL_CHECK(active, "Fiber cannot be NULL");
     NULL_CHECK(temp, "Fiber cannot be NULL");
-    assert(fiber_is_executing(active));
+    require(fiber_is_executing(active));
 
     if (active == temp) {
         f(args);
     } else {
-        assert(!fiber_is_executing(temp));
+        require(!fiber_is_executing(temp));
         temp->_state |= FIBER_FS_EXECUTING;
         active->_state &= ~FIBER_FS_EXECUTING;
         fiber_asm_exec_on_stack(args, f, spabs(temp, temp->_regs.sp));

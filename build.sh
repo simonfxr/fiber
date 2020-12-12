@@ -89,7 +89,7 @@ add_build_config() {
 
 for cc in "${ccs[@]}"; do
     bit_modes=( "$native_bits" )
-    compiler_supports_m32 "$cc" && bit_modes+=( 32 )
+    #compiler_supports_m32 "$cc" && bit_modes+=( 32 )
     for bits in "${bit_modes[@]}"; do
         if [[ $cc = cl && $bits = 64 ]]; then
             { cl 2>&1 | grep "x64"; } || bits=32
@@ -131,26 +131,23 @@ cmd_build() {
     done
 }
 
-cmd_run() {
+cmd_test() {
     local flags=( "$@" )
     mkdir -p build || return $?
     for bc in "${build_configs[@]}"; do
         local d="build/$bc"
         echo "************** $bc **************"
-        for bin in test_basic test_coop test_generators test_fp_stress; do
-            "${d}/$bin" &> "${d}/${bin}.out" || {
-                echo "${d}/$bin exited non zero: $?" >&2
-                continue
+        (
+            cd "$d" || exit $?
+            ctest >/dev/null || {
+                echo "************** FAILED **************"
             }
-            local f="test/${bin}.out"
-            diff -u "${d}/${bin}.out" "$f" ||
-                echo "${d}/$bin output does not match" >&2
-        done
+        ) || exit $?
     done
 }
 
 case "$1" in
-    configure|build|run)
+    configure|build|test)
         "cmd_$1" "${@:2}"
         ;;
     *)
