@@ -140,8 +140,8 @@ thread_start(Sched *sched, thread_entry_func func)
     th->sched = sched;
     th->id = sched->next_id++;
 
-    memset(&th->fiber.regs, 0, sizeof th->fiber.regs);
-    th->fiber.regs.lr = func;
+    memset(&th->fiber._regs, 0, sizeof th->fiber._regs);
+    th->fiber._regs.lr = func;
 
     th->next = sched->running->next;
     th->prev = sched->running;
@@ -167,10 +167,10 @@ trampoline_run(void *null)
 
     Fiber *main = thread_fiber(&sched->main_thread);
     char *e_stack_lim =
-      16 + (char *) ((uintptr_t) main->regs.sp & (uintptr_t) -16);
+      16 + (char *) ((uintptr_t) main->_regs.sp & (uintptr_t) -16);
 
-    main->stack = malloc(STACK_SIZE);
-    main->stack_size = STACK_SIZE;
+    main->_stack = malloc(STACK_SIZE);
+    main->_stack_size = STACK_SIZE;
 
     fiber_switch(&sched->trampoline_fiber, thread_fiber(&sched->main_thread));
 
@@ -186,28 +186,28 @@ trampoline_run(void *null)
         char *s_stack, *s_stack_lim;
         size_t sz;
 
-        s_stack_lim = from->stack + STACK_SIZE;
-        sz = e_stack_lim - (char *) from->regs.sp + word_size;
+        s_stack_lim = from->_stack + STACK_SIZE;
+        sz = e_stack_lim - (char *) from->_regs.sp + word_size;
         memcpy(s_stack_lim - sz, e_stack_lim - sz, sz);
-        require((char *) from->regs.sp <= e_stack_lim);
+        require((char *) from->_regs.sp <= e_stack_lim);
 
-        if (!to->regs.sp) {
+        if (!to->_regs.sp) {
             ThreadArgs args;
             args.thread = to_th;
-            args.entry = (thread_entry_func) to->regs.lr;
+            args.entry = (thread_entry_func) to->_regs.lr;
             fiber_init(
               to, e_stack_lim - STACK_SIZE, STACK_SIZE, thread_guard, to_th);
             fiber_push_return(&to_th->fiber, thread_exec, &args, sizeof args);
-            to->stack = malloc(STACK_SIZE);
-            to->stack_size = STACK_SIZE;
-            to->alloc_stack = to->stack;
+            to->_stack = malloc(STACK_SIZE);
+            to->_stack_size = STACK_SIZE;
+            to->_alloc_stack = to->_stack;
         } else {
-            s_stack_lim = to->stack + STACK_SIZE;
-            sz = e_stack_lim - (char *) to->regs.sp + word_size;
+            s_stack_lim = to->_stack + STACK_SIZE;
+            sz = e_stack_lim - (char *) to->_regs.sp + word_size;
             memcpy(e_stack_lim - sz, s_stack_lim - sz, sz);
         }
 
-        require((char *) to->regs.sp <= e_stack_lim);
+        require((char *) to->_regs.sp <= e_stack_lim);
 
         fiber_switch(&sched->trampoline_fiber, to);
     }

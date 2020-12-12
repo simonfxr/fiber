@@ -39,11 +39,11 @@ typedef uint16_t FiberFlags;
  */
 typedef struct Fiber
 {
-    FiberRegs regs;
-    void *stack;
-    void *alloc_stack;
-    size_t stack_size;
-    FiberState state;
+    FiberRegs _regs;
+    void *_stack;
+    void *_alloc_stack;
+    size_t _stack_size;
+    FiberState _state;
 } Fiber;
 
 #define FIBER_STATE_CONSTANT(x) hu_static_cast(FiberState, x)
@@ -193,7 +193,7 @@ HU_WARN_UNUSED
 static inline bool
 fiber_is_toplevel(const Fiber *fbr)
 {
-    return (fbr->state & FIBER_FS_TOPLEVEL) != 0;
+    return (fbr->_state & FIBER_FS_TOPLEVEL) != 0;
 }
 
 HU_WARN_UNUSED
@@ -201,7 +201,7 @@ HU_NONNULL_PARAMS(1)
 static inline bool
 fiber_is_executing(HU_IN_NONNULL const Fiber *fbr)
 {
-    return (fbr->state & FIBER_FS_EXECUTING) != 0;
+    return (fbr->_state & FIBER_FS_EXECUTING) != 0;
 }
 
 HU_WARN_UNUSED
@@ -209,7 +209,7 @@ HU_NONNULL_PARAMS(1)
 static inline bool
 fiber_is_alive(HU_IN_NONNULL const Fiber *fbr)
 {
-    return (fbr->state & FIBER_FS_ALIVE) != 0;
+    return (fbr->_state & FIBER_FS_ALIVE) != 0;
 }
 
 HU_NONNULL_PARAMS(1)
@@ -217,9 +217,9 @@ static inline void
 fiber_set_alive(HU_INOUT_NONNULL Fiber *fbr, bool alive)
 {
     if (alive)
-        fbr->state |= FIBER_FS_ALIVE;
+        fbr->_state |= FIBER_FS_ALIVE;
     else
-        fbr->state &= ~FIBER_FS_ALIVE;
+        fbr->_state &= ~FIBER_FS_ALIVE;
 }
 
 HU_WARN_UNUSED
@@ -227,7 +227,7 @@ HU_NONNULL_PARAMS(1)
 static inline void *
 fiber_stack(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fbr->stack;
+    return fbr->_stack;
 }
 
 HU_WARN_UNUSED
@@ -235,7 +235,7 @@ HU_NONNULL_PARAMS(1)
 static inline size_t
 fiber_stack_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fbr->stack_size;
+    return fbr->_stack_size;
 }
 
 HU_WARN_UNUSED
@@ -243,8 +243,8 @@ HU_NONNULL_PARAMS(1)
 static inline size_t
 fiber_stack_free_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return hu_static_cast(char *, fbr->regs.sp) -
-           hu_static_cast(char *, fbr->stack);
+    return hu_static_cast(char *, fbr->_regs.sp) -
+           hu_static_cast(char *, fbr->_stack);
 }
 
 HU_WARN_UNUSED
@@ -252,7 +252,7 @@ HU_NONNULL_PARAMS(1)
 static inline size_t
 fiber_stack_used_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fbr->stack_size - fiber_stack_free_size(fbr);
+    return fbr->_stack_size - fiber_stack_free_size(fbr);
 }
 
 #ifdef __cplusplus

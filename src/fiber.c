@@ -94,17 +94,17 @@ fiber_guard(void *fbr);
 static void
 fiber_init_(Fiber *fbr, FiberCleanupFunc cleanup, void *arg)
 {
-    memset(&fbr->regs, 0, sizeof fbr->regs);
+    memset(&fbr->_regs, 0, sizeof fbr->_regs);
     uintptr_t sp =
-      (uintptr_t)((char *) fbr->stack + fbr->stack_size - WORD_SIZE);
+      (uintptr_t)((char *) fbr->_stack + fbr->_stack_size - WORD_SIZE);
     sp &= ~(STACK_ALIGNMENT - 1);
-    fbr->regs.sp = (void *) sp;
+    fbr->_regs.sp = (void *) sp;
     FiberGuardArgs *args;
     fiber_reserve_return(fbr, fiber_guard, (void **) &args, sizeof *args);
     args->fiber = fbr;
     args->cleanup = cleanup;
     args->arg = arg;
-    fbr->state |= FIBER_FS_ALIVE;
+    fbr->_state |= FIBER_FS_ALIVE;
 }
 
 Fiber *
@@ -115,10 +115,10 @@ fiber_init(Fiber *fbr,
            void *arg)
 {
     NULL_CHECK(fbr, "Fiber cannot be NULL");
-    fbr->stack = stack;
-    fbr->stack_size = stack_size;
-    fbr->alloc_stack = NULL;
-    fbr->state = 0;
+    fbr->_stack = stack;
+    fbr->_stack_size = stack_size;
+    fbr->_alloc_stack = NULL;
+    fbr->_state = 0;
     fiber_init_(fbr, cleanup, arg);
     return fbr;
 }
@@ -127,11 +127,11 @@ void
 fiber_init_toplevel(Fiber *fbr)
 {
     NULL_CHECK(fbr, "Fiber cannot be NULL");
-    fbr->stack = NULL;
-    fbr->stack_size = (size_t) -1;
-    fbr->alloc_stack = NULL;
-    memset(&fbr->regs, 0, sizeof fbr->regs);
-    fbr->state = FIBER_FS_ALIVE | FIBER_FS_TOPLEVEL | FIBER_FS_EXECUTING;
+    fbr->_stack = NULL;
+    fbr->_stack_size = (size_t) -1;
+    fbr->_alloc_stack = NULL;
+    memset(&fbr->_regs, 0, sizeof fbr->_regs);
+    fbr->_state = FIBER_FS_ALIVE | FIBER_FS_TOPLEVEL | FIBER_FS_EXECUTING;
 }
 
 static void *
@@ -200,12 +200,12 @@ fiber_alloc(Fiber *fbr,
 {
     NULL_CHECK(fbr, "Fiber cannot be NULL");
     flags &= FIBER_FLAG_GUARD_LO | FIBER_FLAG_GUARD_HI;
-    fbr->stack_size = size;
+    fbr->_stack_size = size;
     const size_t stack_size = size;
 
     if (!flags) {
-        fbr->alloc_stack = fbr->stack = malloc(stack_size);
-        if (!fbr->alloc_stack)
+        fbr->_alloc_stack = fbr->_stack = malloc(stack_size);
+        if (!fbr->_alloc_stack)
             return false;
     } else {
         size_t pgsz = get_page_size();
@@ -214,30 +214,30 @@ fiber_alloc(Fiber *fbr,
             ++npages;
         if (flags & FIBER_FLAG_GUARD_HI)
             ++npages;
-        fbr->alloc_stack = alloc_aligned_chunks(npages, pgsz);
-        if (hu_unlikely(!fbr->alloc_stack))
+        fbr->_alloc_stack = alloc_aligned_chunks(npages, pgsz);
+        if (hu_unlikely(!fbr->_alloc_stack))
             return false;
 
         if (flags & FIBER_FLAG_GUARD_LO)
-            if (hu_unlikely(!protect_page(fbr->alloc_stack, false)))
+            if (hu_unlikely(!protect_page(fbr->_alloc_stack, false)))
                 goto fail;
 
         if (flags & FIBER_FLAG_GUARD_HI)
             if (hu_unlikely(!protect_page(
-                  (char *) fbr->alloc_stack + (npages - 1) * pgsz, false)))
+                  (char *) fbr->_alloc_stack + (npages - 1) * pgsz, false)))
                 goto fail;
         if (flags & FIBER_FLAG_GUARD_LO)
-            fbr->stack = (char *) fbr->alloc_stack + pgsz;
+            fbr->_stack = (char *) fbr->_alloc_stack + pgsz;
         else
-            fbr->stack = fbr->alloc_stack;
+            fbr->_stack = fbr->_alloc_stack;
     }
 
-    fbr->state = flags;
+    fbr->_state = flags;
     fiber_init_(fbr, cleanup, arg);
     return true;
 
 fail:
-    free_pages(fbr->alloc_stack);
+    free_pages(fbr->_alloc_stack);
     return false;
 }
 
@@ -247,31 +247,31 @@ fiber_destroy(Fiber *fbr)
     assert(!fiber_is_executing(fbr));
     assert(!fiber_is_toplevel(fbr));
 
-    if (!fbr->alloc_stack)
+    if (!fbr->_alloc_stack)
         return;
 
-    if (fbr->state &
+    if (fbr->_state &
         (FIBER_FS_HAS_HI_GUARD_PAGE | FIBER_FS_HAS_LO_GUARD_PAGE)) {
         size_t pgsz = get_page_size();
-        size_t npages = (fbr->stack_size + pgsz - 1) / pgsz;
-        if (fbr->state & FIBER_FS_HAS_LO_GUARD_PAGE) {
+        size_t npages = (fbr->_stack_size + pgsz - 1) / pgsz;
+        if (fbr->_state & FIBER_FS_HAS_LO_GUARD_PAGE) {
             ++npages;
-            protect_page(fbr->alloc_stack, true);
+            protect_page(fbr->_alloc_stack, true);
         }
 
-        if (fbr->state & FIBER_FS_HAS_HI_GUARD_PAGE) {
-            protect_page((char *) fbr->alloc_stack + npages * pgsz, true);
+        if (fbr->_state & FIBER_FS_HAS_HI_GUARD_PAGE) {
+            protect_page((char *) fbr->_alloc_stack + npages * pgsz, true);
         }
 
-        free_pages(fbr->alloc_stack);
+        free_pages(fbr->_alloc_stack);
     } else {
-        free(fbr->alloc_stack);
+        free(fbr->_alloc_stack);
     }
 
-    fbr->stack = NULL;
-    fbr->stack_size = 0;
-    fbr->regs.sp = NULL;
-    fbr->alloc_stack = NULL;
+    fbr->_stack = NULL;
+    fbr->_stack_size = 0;
+    fbr->_regs.sp = NULL;
+    fbr->_alloc_stack = NULL;
 }
 
 void
@@ -286,9 +286,9 @@ fiber_switch(Fiber *from, Fiber *to)
     assert(fiber_is_executing(from));
     assert(!fiber_is_executing(to));
     assert(fiber_is_alive(to));
-    from->state &= ~FIBER_FS_EXECUTING;
-    to->state |= FIBER_FS_EXECUTING;
-    fiber_asm_switch(&from->regs, &to->regs);
+    from->_state &= ~FIBER_FS_EXECUTING;
+    to->_state |= FIBER_FS_EXECUTING;
+    fiber_asm_switch(&from->_regs, &to->_regs);
 }
 
 #if hu_has_attribute(weak)
@@ -333,7 +333,7 @@ fiber_reserve_return(Fiber *fbr,
     NULL_CHECK(fbr, "Fiber cannot be NULL");
     assert(!fiber_is_executing(fbr));
 
-    char *sp = hu_cxx_static_cast(char *, fbr->regs.sp);
+    char *sp = hu_cxx_static_cast(char *, fbr->_regs.sp);
     size_t arg_align =
       ARG_ALIGNMENT > STACK_ALIGNMENT ? ARG_ALIGNMENT : STACK_ALIGNMENT;
     sp = stack_align_n(sp - args_size, arg_align);
@@ -345,16 +345,16 @@ fiber_reserve_return(Fiber *fbr,
 
     assert(is_stack_aligned(sp));
 
-    push(&sp, fbr->regs.lr);
-    push(&sp, fbr->regs.sp);
+    push(&sp, fbr->_regs.lr);
+    push(&sp, fbr->_regs.sp);
     push(&sp, hu_cxx_reinterpret_cast(void *, f));
     push(&sp, *args_dest);
 
     assert(is_stack_aligned(sp));
 
-    fbr->regs.lr = hu_cxx_reinterpret_cast(void *, fiber_asm_invoke);
+    fbr->_regs.lr = hu_cxx_reinterpret_cast(void *, fiber_asm_invoke);
 
-    fbr->regs.sp = (void *) sp;
+    fbr->_regs.sp = (void *) sp;
 }
 
 void
@@ -368,11 +368,11 @@ fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
         f(args);
     } else {
         assert(!fiber_is_executing(temp));
-        temp->state |= FIBER_FS_EXECUTING;
-        active->state &= ~FIBER_FS_EXECUTING;
-        fiber_asm_exec_on_stack(args, f, temp->regs.sp);
-        active->state |= FIBER_FS_EXECUTING;
-        temp->state &= ~FIBER_FS_EXECUTING;
+        temp->_state |= FIBER_FS_EXECUTING;
+        active->_state &= ~FIBER_FS_EXECUTING;
+        fiber_asm_exec_on_stack(args, f, temp->_regs.sp);
+        active->_state |= FIBER_FS_EXECUTING;
+        temp->_state &= ~FIBER_FS_EXECUTING;
     }
 }
 
@@ -380,7 +380,7 @@ static void
 fiber_guard(void *argsp)
 {
     FiberGuardArgs *args = (FiberGuardArgs *) argsp;
-    args->fiber->state &= ~FIBER_FS_ALIVE;
+    args->fiber->_state &= ~FIBER_FS_ALIVE;
     args->cleanup(args->fiber, args->arg);
     error_abort("ERROR: fiber cleanup returned");
 }
