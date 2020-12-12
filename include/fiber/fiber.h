@@ -241,18 +241,35 @@ fiber_stack_size(HU_IN_NONNULL const Fiber *fbr)
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
 static inline size_t
-fiber_stack_free_size(HU_IN_NONNULL const Fiber *fbr)
+fiber_stack_used_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return hu_static_cast(char *, fbr->_regs.sp) -
-           hu_static_cast(char *, fbr->_stack);
+    return fbr->_regs.sp <= 0 ? sizeof(void *) - fbr->_regs.sp : 0;
 }
 
 HU_WARN_UNUSED
 HU_NONNULL_PARAMS(1)
 static inline size_t
-fiber_stack_used_size(HU_IN_NONNULL const Fiber *fbr)
+fiber_stack_free_size(HU_IN_NONNULL const Fiber *fbr)
 {
-    return fbr->_stack_size - fiber_stack_free_size(fbr);
+    return fbr->_stack_size - fiber_stack_used_size(fbr);
+}
+
+HU_CONST_FN
+HU_WARN_UNUSED
+size_t
+fiber_stack_alignment();
+
+HU_WARN_UNUSED
+HU_NONNULL_PARAMS(1)
+static inline void *
+fiber_stack_compute_base(void *stack, size_t stack_size)
+{
+    size_t align = fiber_stack_alignment();
+    uintptr_t sp = (uintptr_t)((char *) stack + stack_size);
+    sp &= ~(align - 1);
+    if (sp < (uintptr_t) stack + align)
+        return NULL;
+    return (void *) sp;
 }
 
 #ifdef __cplusplus

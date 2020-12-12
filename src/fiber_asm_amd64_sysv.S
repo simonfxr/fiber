@@ -35,23 +35,39 @@
 
 FUNC(fiber_asm_switch):
   pop rax
-  .set i, 0
-  .irp r, rsp, rax, rbp, rbx, r12, r13, r14, r15
+
+  check_stack_alignment
+
+  mov rcx, [rdi]
+  mov rdx, rsp
+  sub rdx, rcx
+  mov [rdi + 8 * 1], rdx
+
+  mov rcx, [rsi]
+  mov rdx, [rsi + 8 * 1]
+  lea rsp, [rdx + rcx]
+
+  .set i, 2
+  .irp r, rax, rbp, rbx, r12, r13, r14, r15
      mov [rdi + 8 * i], \r
      mov \r, [rsi + 8 * i]
      .set i, i+1
   .endr
+
+  check_stack_alignment
+
   jmp rax
 END_FUNC(fiber_asm_switch)
 
 
 FUNC(fiber_asm_invoke):
-  pop rdi
-  pop rsi
   check_stack_alignment
+  mov rdi, [rsp]
+  add rdi, rsp
+  mov rsi, [rsp+8]
   call rsi
-  mov rax, [rsp + 8]
-  mov rsp, [rsp]
+  mov rax, [rsp+16]
+  add rsp, [rsp+24]
   check_stack_alignment
   jmp rax
 END_FUNC(fiber_asm_invoke)

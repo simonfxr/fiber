@@ -46,7 +46,6 @@ static const size_t STACK_ALIGNMENT = FIBER_STACK_ALIGNMENT;
 #endif
 
 static const size_t ARG_ALIGNMENT = 8;
-static const size_t WORD_SIZE = sizeof(void *);
 
 #if HU_HAVE_NONNULL_PARAMS_P || HU_HAVE_INOUT_NONNULL_P
 #    define NULL_CHECK(arg, msg)
@@ -73,20 +72,6 @@ is_stack_aligned(void *sp)
     return ((uintptr_t) sp & (STACK_ALIGNMENT - 1)) == 0;
 }
 
-static inline void
-push(char **sp, void *val)
-{
-    *sp -= WORD_SIZE;
-    *(void **) *sp = val;
-}
-
-static inline void
-push_rel(char **sp, intptr_t rel)
-{
-    *sp -= WORD_SIZE;
-    *(intptr_t *) *sp = rel;
-}
-
 typedef struct
 {
     Fiber *fiber;
@@ -101,23 +86,30 @@ fiber_guard(void *fbr);
 static intptr_t
 sprel(const Fiber *fbr, void *sp)
 {
-    return (intptr_t) sp;
+    return (char *) sp - fbr->_regs.base;
 }
 
 static char *
 spabs(const Fiber *fbr, intptr_t rel)
 {
-    return (char *) (void *) rel;
+    return fbr->_regs.base + rel;
+}
+
+size_t
+fiber_stack_alignment()
+{
+    return STACK_ALIGNMENT;
 }
 
 static void
 fiber_init_(Fiber *fbr, FiberCleanupFunc cleanup, void *arg)
 {
-    memset(&fbr->_regs, 0, sizeof fbr->_regs);
-    uintptr_t sp =
-      (uintptr_t)((char *) fbr->_stack + fbr->_stack_size - WORD_SIZE);
-    sp &= ~(STACK_ALIGNMENT - 1);
-    fbr->_regs.sp = (void *) sp;
+    fbr->_regs.lr = NULL;
+    fbr->_regs.base = fiber_stack_compute_base(fbr->_stack, fbr->_stack_size);
+    assert(fbr->_regs.base);
+    fbr->_regs.sp = 0;
+    assert(fiber_stack_used_size(fbr) <= sizeof(void *));
+
     FiberGuardArgs *args;
     fiber_reserve_return(fbr, fiber_guard, (void **) &args, sizeof *args);
     args->fiber = fbr;
@@ -140,17 +132,6 @@ fiber_init(Fiber *fbr,
     fbr->_state = 0;
     fiber_init_(fbr, cleanup, arg);
     return fbr;
-}
-
-void
-fiber_init_toplevel(Fiber *fbr)
-{
-    NULL_CHECK(fbr, "Fiber cannot be NULL");
-    fbr->_stack = NULL;
-    fbr->_stack_size = (size_t) -1;
-    fbr->_alloc_stack = NULL;
-    memset(&fbr->_regs, 0, sizeof fbr->_regs);
-    fbr->_state = FIBER_FS_ALIVE | FIBER_FS_TOPLEVEL | FIBER_FS_EXECUTING;
 }
 
 static void *
@@ -343,6 +324,58 @@ probe_stack(volatile char *sp0, size_t sz, size_t pgsz)
 #endif
 }
 
+HU_NOINLINE
+static char *
+read_sp(volatile uintptr_t *stack_val)
+{
+    volatile char *sp = (volatile char *) stack_val;
+#if HU_COMP_GNUC_P
+    __asm__ __volatile__("" : : "r"(sp) : "memory");
+#endif
+    *(volatile uintptr_t *) sp |= (uintptr_t) 0;
+#ifdef HAVE_probe_stack_weak_dummy
+    _probe_stack_weak_dummy(sp, 16);
+#endif
+    return (char *) sp;
+}
+
+void
+fiber_init_toplevel(Fiber *fbr)
+{
+    uintptr_t stack_val;
+    char *sp_base = stack_align_n(read_sp(&stack_val) + 128, STACK_ALIGNMENT);
+
+    NULL_CHECK(fbr, "Fiber cannot be NULL");
+
+    char *sp_min = (char *) ((uint16_t) -1);
+    sp_min = stack_align_n(sp_min, STACK_ALIGNMENT);
+    size_t stack_size = ((size_t) -1 >> 1) & ~(STACK_ALIGNMENT - 1);
+
+    char *sp_bot;
+    if (sp_base < sp_min + stack_size)
+        sp_bot = sp_min;
+    else
+        sp_bot = sp_base - stack_size;
+
+    fbr->_stack = sp_bot;
+    fbr->_stack_size = sp_base - sp_bot;
+    fbr->_alloc_stack = NULL;
+    fbr->_regs.lr = NULL;
+    fbr->_regs.base = fiber_stack_compute_base(fbr->_stack, fbr->_stack_size);
+    assert(fbr->_regs.base);
+    fbr->_regs.sp = 0; // does not really matter
+    fbr->_state = FIBER_FS_ALIVE | FIBER_FS_TOPLEVEL | FIBER_FS_EXECUTING;
+}
+
+typedef struct
+{
+    intptr_t args_adjust;
+    void *func;
+    void *lr_save;
+    intptr_t sp_adjust;
+    // char args[];
+} InvocationFrame;
+
 void
 fiber_reserve_return(Fiber *fbr,
                      FiberFunc f,
@@ -352,11 +385,17 @@ fiber_reserve_return(Fiber *fbr,
     NULL_CHECK(fbr, "Fiber cannot be NULL");
     assert(!fiber_is_executing(fbr));
 
-    char *sp = spabs(fbr, fbr->_regs.sp);
+    char *sp0 = spabs(fbr, fbr->_regs.sp);
+    char *sp = sp0;
     size_t arg_align =
       ARG_ALIGNMENT > STACK_ALIGNMENT ? ARG_ALIGNMENT : STACK_ALIGNMENT;
     sp = stack_align_n(sp - args_size, arg_align);
     *args_dest = sp;
+
+    assert(fiber_is_toplevel(fbr) || ((char *) *args_dest + args_size <=
+                                      (char *) fbr->_stack + fbr->_stack_size));
+
+    assert(fbr->_regs.sp <= 0);
 
     size_t pgsz = get_page_size();
     if (hu_unlikely(args_size > pgsz - 100))
@@ -364,12 +403,15 @@ fiber_reserve_return(Fiber *fbr,
 
     assert(is_stack_aligned(sp));
 
-    push(&sp, fbr->_regs.lr);
-    push_rel(&sp, fbr->_regs.sp);
-    push(&sp, hu_cxx_reinterpret_cast(void *, f));
-    push(&sp, *args_dest);
-
+    InvocationFrame *iframe;
+    sp -= sizeof *iframe;
     assert(is_stack_aligned(sp));
+
+    iframe = (void *) sp;
+    iframe->args_adjust = (char *) *args_dest - sp;
+    iframe->func = hu_cxx_reinterpret_cast(void *, f);
+    iframe->lr_save = fbr->_regs.lr;
+    iframe->sp_adjust = (char *) sp0 - sp;
 
     fbr->_regs.lr = hu_cxx_reinterpret_cast(void *, fiber_asm_invoke);
 

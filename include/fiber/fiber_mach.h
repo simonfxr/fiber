@@ -20,7 +20,7 @@ typedef struct
 {
     intptr_t sp;
     void *lr;
-    intptr_t ebp;
+    char *ebp;
     char *ebx;
     char *edi;
     char *esi;
@@ -30,9 +30,10 @@ typedef struct
 #    define FIBER_STACK_ALIGNMENT 16
 typedef struct
 {
+    char *base;
     intptr_t sp;
     void *lr;
-    intptr_t rbp;
+    char *rbp;
     char *rbx;
     char *r12;
     char *r13;
@@ -47,7 +48,7 @@ typedef struct
     intptr_t sp;
     void *lr;
     char *rbx;
-    intptr_t rbp;
+    char *rbp;
     char *rdi;
     char *rsi;
     char *r12;
@@ -66,7 +67,7 @@ typedef struct
     intptr_t sp;
     void *lr;
     char *ebx;
-    intptr_t ebp;
+    char *ebp;
     char *esi;
     char *edi;
 } FiberRegs;

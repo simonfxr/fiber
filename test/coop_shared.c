@@ -35,12 +35,10 @@ struct Sched
     bool shutdown_signal;
 };
 
-typedef void (*thread_entry_func)(void);
-
 typedef struct
 {
     Thread *thread;
-    thread_entry_func entry;
+    void (*entry)(void);
 } ThreadArgs;
 
 typedef struct
@@ -95,11 +93,12 @@ thread_exec(void *args0)
 }
 
 static void
-thread_cleanup_cont(Thread *th)
+thread_cleanup_cont(void *args0)
 {
-    fprintf(out, "[Scheduler] thread exited: %d\n", th->id);
-    fiber_destroy(&th->fiber);
-    free(th);
+    CleanupArgs *args = (CleanupArgs *) args0;
+    fprintf(out, "[Scheduler] thread exited: %d\n", args->thread->id);
+    fiber_destroy(&args->thread->fiber);
+    free(args->thread);
 }
 
 static void
@@ -113,35 +112,34 @@ thread_guard(Fiber *self, void *arg)
 
     Sched *sched = th->sched;
     Thread *sched_thread = &sched->main_thread;
-    /* CleanupArgs *args; */
+    CleanupArgs *args;
 
-    /* fiber_reserve_return( */
-    /*   &sched_thread->fiber, thread_cleanup_cont, (void **) &args, sizeof
-     * args); */
-    /* args->thread = th; */
+    fiber_reserve_return(
+      &sched_thread->fiber, thread_cleanup_cont, (void **) &args, sizeof args);
+    args->thread = th;
 
     Thread *next = th->next;
     // unlink ourself
     th->prev->next = th->next;
     th->next->prev = th->prev;
-
-    th->next = sched->done;
-    sched->done = th;
-
     thread_switch(th, next);
     // does not return here
     abort();
 }
 
 static void
-thread_start(Sched *sched, thread_entry_func func)
+thread_start(Sched *sched, void (*func)(void))
 {
     Thread *th = hu_cxx_static_cast(Thread *, malloc(sizeof *th));
     th->sched = sched;
     th->id = sched->next_id++;
+    (void) fiber_alloc(
+      &th->fiber, STACK_SIZE, thread_guard, th, FIBER_FLAG_GUARD_LO);
 
-    memset(&th->fiber._regs, 0, sizeof th->fiber._regs);
-    th->fiber._regs.lr = func;
+    ThreadArgs args;
+    args.thread = th;
+    args.entry = func;
+    fiber_push_return(&th->fiber, thread_exec, &args, sizeof args);
 
     th->next = sched->running->next;
     th->prev = sched->running;
@@ -157,6 +155,12 @@ trampoline_bottom(Fiber *fiber, void *null)
     abort();
 }
 
+static inline char *
+fiber_stack_base(Fiber *fbr)
+{
+    return fbr->_regs.base;
+}
+
 static void
 trampoline_run(void *null)
 {
@@ -166,12 +170,9 @@ trampoline_run(void *null)
     size_t word_size = sizeof(void *);
 
     Fiber *main = thread_fiber(&sched->main_thread);
-    char *e_stack_lim =
-      16 + (char *) ((uintptr_t) main->_regs.sp & (uintptr_t) -16);
-
+    char *e_stack_base = fiber_stack_base(main);
     main->_stack = malloc(STACK_SIZE);
     main->_stack_size = STACK_SIZE;
-
     fiber_switch(&sched->trampoline_fiber, thread_fiber(&sched->main_thread));
 
     for (;;) {
@@ -186,28 +187,16 @@ trampoline_run(void *null)
         char *s_stack, *s_stack_lim;
         size_t sz;
 
-        s_stack_lim = from->_stack + STACK_SIZE;
-        sz = e_stack_lim - (char *) from->_regs.sp + word_size;
-        memcpy(s_stack_lim - sz, e_stack_lim - sz, sz);
-        require((char *) from->_regs.sp <= e_stack_lim);
+        sz = fiber_stack_used_size(from);
+        require(sz > 0);
+        from->_regs.base =
+          fiber_stack_compute_base(from->_stack, from->_stack_size);
+        memcpy(fiber_stack_base(from) - sz, e_stack_base - sz, sz);
 
-        if (!to->_regs.sp) {
-            ThreadArgs args;
-            args.thread = to_th;
-            args.entry = (thread_entry_func) to->_regs.lr;
-            fiber_init(
-              to, e_stack_lim - STACK_SIZE, STACK_SIZE, thread_guard, to_th);
-            fiber_push_return(&to_th->fiber, thread_exec, &args, sizeof args);
-            to->_stack = malloc(STACK_SIZE);
-            to->_stack_size = STACK_SIZE;
-            to->_alloc_stack = to->_stack;
-        } else {
-            s_stack_lim = to->_stack + STACK_SIZE;
-            sz = e_stack_lim - (char *) to->_regs.sp + word_size;
-            memcpy(e_stack_lim - sz, s_stack_lim - sz, sz);
-        }
-
-        require((char *) to->_regs.sp <= e_stack_lim);
+        sz = fiber_stack_used_size(to);
+        require(sz > 0);
+        memcpy(e_stack_base - sz, fiber_stack_base(to) - sz, sz);
+        to->_regs.base = e_stack_base;
 
         fiber_switch(&sched->trampoline_fiber, to);
     }
@@ -338,13 +327,6 @@ execute(Sched *sched)
     the_thread = &sched->main_thread;
     while (sched->running->next != &sched->main_thread) {
         yield();
-
-        for (Thread *done = sched->done; done;) {
-            Thread *th = done;
-            done = done->next;
-            thread_cleanup_cont(th);
-        }
-        sched->done = NULL;
 
         if (sched->fuel == 0 && !sched->shutdown_signal) {
             sched->shutdown_signal = true;

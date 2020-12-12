@@ -45,11 +45,28 @@ fiber_entry(void *argsp)
     put_str(args->self, args->caller, "some string");
     put_str(args->self, args->caller, "some other string");
 
+    /* require(fiber_stack_used_size(args->caller) < 1024); */
+
+    /* require(fiber_stack_free_size(args->caller) > */
+    /*         fiber_stack_size(args->caller) - 1024); */
+
+    /* require(fiber_stack_free_size(args->caller) < */
+    /*         fiber_stack_size(args->caller)); */
+
     println("again fiber_entry()");
     char *msg;
     size_t sz = 64 * 1024;
     fiber_reserve_return(args->caller, run_put_str, (void **) &msg, sz);
     memset(msg, 0, sz);
+
+    /* require(fiber_stack_used_size(args->caller) < sz + 1024); */
+
+    /* require(fiber_stack_free_size(args->caller) > */
+    /*         fiber_stack_size(args->caller) - 1024 - sz); */
+
+    /* require(fiber_stack_free_size(args->caller) <= */
+    /*         fiber_stack_size(args->caller)); */
+
     strcpy(msg, "Pushed onto toplevel fiber");
     fiber_switch(args->self, args->caller);
 }
