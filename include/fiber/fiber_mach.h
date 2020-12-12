@@ -18,42 +18,42 @@
 #    define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
-    void *sp;
+    intptr_t sp;
     void *lr;
-    void *ebp;
-    void *ebx;
-    void *edi;
-    void *esi;
+    intptr_t ebp;
+    char *ebx;
+    char *edi;
+    char *esi;
 } FiberRegs;
 #elif HU_ARCH_X86_P && HU_BITS_64_P && HU_OS_POSIX_P
 #    define FIBER_TARGET_AMD64_SYSV
 #    define FIBER_STACK_ALIGNMENT 16
 typedef struct
 {
-    void *sp;
+    intptr_t sp;
     void *lr;
-    void *rbp;
-    void *rbx;
-    void *r12;
-    void *r13;
-    void *r14;
-    void *r15;
+    intptr_t rbp;
+    char *rbx;
+    char *r12;
+    char *r13;
+    char *r14;
+    char *r15;
 } FiberRegs;
 #elif HU_ARCH_X86_P && HU_BITS_64_P && HU_OS_WINDOWS_P
 #    define FIBER_TARGET_AMD64_WIN64 1
 #    define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
-    void *sp;
+    intptr_t sp;
     void *lr;
-    void *rbx;
-    void *rbp;
-    void *rdi;
-    void *rsi;
-    void *r12;
-    void *r13;
-    void *r14;
-    void *r15;
+    char *rbx;
+    intptr_t rbp;
+    char *rdi;
+    char *rsi;
+    char *r12;
+    char *r13;
+    char *r14;
+    char *r15;
     /* 10 * 16 bytes, add aditional 8 bytes to make 16byte alignment possible */
     double xmm[21];
 } FiberRegs;
@@ -63,21 +63,21 @@ typedef struct
 #    define FIBER_DEFAULT_STACK_ALIGNMENT 4
 typedef struct
 {
-    void *sp;
+    intptr_t sp;
     void *lr;
-    void *ebx;
-    void *ebp;
-    void *esi;
-    void *edi;
+    char *ebx;
+    intptr_t ebp;
+    char *esi;
+    char *edi;
 } FiberRegs;
 #elif HU_ARCH_ARM_P && HU_BITS_32_P && HU_OS_POSIX_P
 #    define FIBER_TARGET_ARM32_EABI
 #    define FIBER_DEFAULT_STACK_ALIGNMENT 8
 typedef struct
 {
-    void *__pad;
-    void *r[9];  /* r4 - r12 */
-    void *sp;    /* r13 */
+    char *__pad;
+    char *r[9];  /* r4 - r12 */
+    intptr_t sp; /* r13 */
     void *lr;    /* r14 */
     double d[8]; /* d8 - d15 */
 } FiberRegs;
@@ -86,10 +86,10 @@ typedef struct
 #    define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
-    void *sp;
+    intptr_t sp;
     void *lr;    /* r30 */
-    void *fp;    /* r29 */
-    void *r[10]; /* r19 - r28 */
+    char *fp;    /* r29 */
+    char *r[10]; /* r19 - r28 */
     double d[8]; /* d8 - d15 */
 } FiberRegs;
 #elif HU_ARCH_RISCV_P && HU_BITS_64_P && HU_OS_POSIX_P
@@ -100,9 +100,9 @@ typedef struct
 #    endif
 typedef struct
 {
-    void *sp;
+    intptr_t sp;
     void *lr;
-    void *s[12];
+    char *s[12];
     double fs[12];
 } FiberRegs;
 #elif HU_ARCH_PPC_P && HU_BITS_64_P && HU_LITTLE_ENDIAN_P && HU_OBJFMT_ELF_P
@@ -116,8 +116,8 @@ typedef struct
     uint32_t cr;
     uint32_t vrsave;
     void *lr;              /* r0 */
-    void *sp;              /* r1 */
-    void *r[18];           /* r14 - r31 */
+    intptr_t sp;           /* r1 */
+    char *r[18];           /* r14 - r31 */
     double *f[18];         /* f14 - f31 */
     double *v[12 * 2 + 1]; /* v20 - v31, adjusted to be 16 byte aligned */
 } FiberRegs;

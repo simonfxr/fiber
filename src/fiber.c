@@ -80,6 +80,13 @@ push(char **sp, void *val)
     *(void **) *sp = val;
 }
 
+static inline void
+push_rel(char **sp, intptr_t rel)
+{
+    *sp -= WORD_SIZE;
+    *(intptr_t *) *sp = rel;
+}
+
 typedef struct
 {
     Fiber *fiber;
@@ -90,6 +97,18 @@ typedef struct
 HU_NORETURN
 static void
 fiber_guard(void *fbr);
+
+static intptr_t
+sprel(const Fiber *fbr, void *sp)
+{
+    return (intptr_t) sp;
+}
+
+static char *
+spabs(const Fiber *fbr, intptr_t rel)
+{
+    return (char *) (void *) rel;
+}
 
 static void
 fiber_init_(Fiber *fbr, FiberCleanupFunc cleanup, void *arg)
@@ -270,7 +289,7 @@ fiber_destroy(Fiber *fbr)
 
     fbr->_stack = NULL;
     fbr->_stack_size = 0;
-    fbr->_regs.sp = NULL;
+    fbr->_regs.sp = 0;
     fbr->_alloc_stack = NULL;
 }
 
@@ -333,7 +352,7 @@ fiber_reserve_return(Fiber *fbr,
     NULL_CHECK(fbr, "Fiber cannot be NULL");
     assert(!fiber_is_executing(fbr));
 
-    char *sp = hu_cxx_static_cast(char *, fbr->_regs.sp);
+    char *sp = spabs(fbr, fbr->_regs.sp);
     size_t arg_align =
       ARG_ALIGNMENT > STACK_ALIGNMENT ? ARG_ALIGNMENT : STACK_ALIGNMENT;
     sp = stack_align_n(sp - args_size, arg_align);
@@ -346,7 +365,7 @@ fiber_reserve_return(Fiber *fbr,
     assert(is_stack_aligned(sp));
 
     push(&sp, fbr->_regs.lr);
-    push(&sp, fbr->_regs.sp);
+    push_rel(&sp, fbr->_regs.sp);
     push(&sp, hu_cxx_reinterpret_cast(void *, f));
     push(&sp, *args_dest);
 
@@ -354,7 +373,7 @@ fiber_reserve_return(Fiber *fbr,
 
     fbr->_regs.lr = hu_cxx_reinterpret_cast(void *, fiber_asm_invoke);
 
-    fbr->_regs.sp = (void *) sp;
+    fbr->_regs.sp = sprel(fbr, sp);
 }
 
 void
@@ -370,7 +389,7 @@ fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
         assert(!fiber_is_executing(temp));
         temp->_state |= FIBER_FS_EXECUTING;
         active->_state &= ~FIBER_FS_EXECUTING;
-        fiber_asm_exec_on_stack(args, f, temp->_regs.sp);
+        fiber_asm_exec_on_stack(args, f, spabs(temp, temp->_regs.sp));
         active->_state |= FIBER_FS_EXECUTING;
         temp->_state &= ~FIBER_FS_EXECUTING;
     }
