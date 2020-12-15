@@ -26,10 +26,13 @@
   .endm
 
 FUNC(fiber_asm_switch):
-  mov x3, sp
-  str x3, [x0], 8
+  ldr x2, [x0], 8
   ldr x3, [x1], 8
-  mov sp, x3
+
+  sub x4, sp, x2
+  str x4, [x0], 8
+  ldr x5, [x1], 8
+  add sp, x5, x3
 
   check_stack_alignment_nomove x3
 
@@ -58,11 +61,13 @@ FUNC(fiber_asm_switch):
 END_FUNC(fiber_asm_switch)
 
 FUNC(fiber_asm_invoke):
-  ldp x0, x1, [sp], 16
+  ldp x0, x1, [sp]
+  add x0, sp, x0
+  add sp, sp, 16
   check_stack_alignment_move x3
   blr x1
-  ldp x3, lr, [sp]
-  mov sp, x3
+  ldp lr, x3, [sp], -16
+  add sp, sp, x3
   check_stack_alignment_nomove x3
   ret
 END_FUNC(fiber_asm_invoke)

@@ -89,6 +89,7 @@ typedef struct
 #    define FIBER_DEFAULT_STACK_ALIGNMENT 16
 typedef struct
 {
+    char *base;
     intptr_t sp;
     void *lr;    /* r30 */
     char *fp;    /* r29 */
