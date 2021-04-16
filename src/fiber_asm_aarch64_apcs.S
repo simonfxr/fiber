@@ -4,6 +4,9 @@
 
 #include <hu/objfmt.h>
 
+#define CONC0(a, b) a ## b
+#define CONC(a, b) CONC0(a, b)
+
 #if HU_OBJFMT_ELF_P
   .macro func_entry sym
     .align 4
@@ -12,18 +15,19 @@
     .type \sym, @function
   .endm
 #define ENTRY(sym) sym
+#define END_FUNC(sym) .size ENTRY(sym), .-ENTRY(sym)
 #elif HU_OBJFMT_MACHO_P
   .macro func_entry sym
     .align 4
     .global \sym
   .endm
 #define ENTRY(sym) CONC(_, sym)
+#define END_FUNC(sym)
 #else
 #error "HU_OBJFMT_*_P neither ELF nor MACHO"
 #endif
 
 #define FUNC(sym) func_entry ENTRY(sym)
-#define END_FUNC(sym) .size ENTRY(sym), .-ENTRY(sym)
 
   .macro check_stack_alignment_nomove reg
 #ifdef FIBER_ASM_CHECK_ALIGNMENT

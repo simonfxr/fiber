@@ -1,8 +1,10 @@
 # Fiber: fast and lightweight cross-platform coroutines
+
 - Fast by using custom assembly per platform: switching coroutines is just a few memory/register swaps (e.g. on amd64: 9 registers)
 - Minimal: about 300 lines of C and under 100 lines of assembly per platform
 
 ## Usecases
+
 - replace your state machine with something more readable
 - replace your event loop callbacks with a more natural thread-like control flow
 - lazy streams and generators
@@ -10,11 +12,13 @@
 - cooperative threading in general (see `test1.c` for an example)
 
 ## Supported platforms
+
 - ELF Targets, 32 or 64-bit, running on x86 or ARM (e.g. Linux, BSD's)
 - Windows 32 or 64-bit x86
-- MacOS 64bit x86
+- MacOS 64bit x86 and Apple Silicon (special thanks to [@rsmmr](https://github.com/rsmmr) for Apple Silicon support!)
 
 Tested on the following machines:
+
 - ArchLinux: clang/gcc: 32 and 64-bit builds
 - FreeBSD 11: clang: 32 and 64-bit builds
 - Windows x86: MSVC: 32 and 64-bit builds
@@ -24,6 +28,7 @@ Tested on the following machines:
 - MacOS 10.14: clang 64-bit builds
 
 ## Caveats
+
 - Its possible to use very small stacks, but it is not recommended, since signal handlers or linkers might run code on your coroutine stack at unexpected times, better use a more conservative stack size of e.g 32kb.
 - Moving fibers from one OS thread to another is problematic: (caching of thread locals and platform specific use of registers)
 - If you use C++ exceptions: The top stack frame of each coroutine should catch and rethrow all exceptions in a toplevel fiber (this also applies to Windows SEH)
@@ -42,6 +47,7 @@ make
 ```
 
 Or integrate it in your cmake build
+
 ```cmake
 add_subdirectory(path/to/fiber)
 target_link_libraries(your-target fiber::fiber)
