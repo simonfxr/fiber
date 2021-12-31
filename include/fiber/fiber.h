@@ -189,6 +189,13 @@ fiber_exec_on(HU_IN_NONNULL Fiber *active,
               HU_IN_NONNULL FiberFunc f,
               void *args);
 
+/**
+ * @return The compiled in stack alignment
+ */
+FIBER_API
+size_t
+fiber_stack_alignment();
+
 HU_WARN_UNUSED
 static inline bool
 fiber_is_toplevel(const Fiber *fbr)

@@ -7,29 +7,28 @@ endif()
 
 if(FIBER_STANDALONE_PROJECT)
   project(fiber LANGUAGES C)
+  # Required under windows when building a dll and running tests
+  set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/cmake-utils/cmake-utils.cmake")
 
-cmu_configure()
-
-if(NOT DEFINED FIBER_SHARED)
-  set(FIBER_SHARED "${BUILD_SHARED_LIBS}")
+if(FIBER_STANDALONE_PROJECT)
+  cmu_configure()
 endif()
 
-set(FIBER_SHARED "${FIBER_SHARED}" CACHE BOOL "build shared fiber library")
+option(FIBER_SHARED "build shared fiber library" ${BUILD_SHARED_LIBS})
 
-set(
-  FIBER_ASM_CHECK_ALIGNMENT
-  True
-  CACHE BOOL "add extra stack alignment checks to asm functions"
-)
+option(FIBER_ASM_CHECK_ALIGNMENT "add extra stack alignment checks to asm functions" True)
 
-set(FIBER_M32 False CACHE BOOL "force 32bit compile on x86 via -m32")
+option(FIBER_M32 "force 32bit compile on x86 via -m32" False)
 
-set(FIBER_HAVE_LTO ${CMU_HAVE_IPO})
+if(NOT COMMAND check_ipo_supported)
+  include(CheckIPOSupported)
+endif()
+check_ipo_supported(RESULT FIBER_HAVE_LTO)
 
-set(FIBER_LTO ${FIBER_HAVE_LTO} CACHE BOOL "enable lto")
+option(FIBER_LTO "enable lto" False)
 
 if(FIBER_M32 OR CMU_BITS_32)
   set(FIBER_BITS_32 True)
@@ -58,7 +57,7 @@ if(FIBER_ASM_CHECK_ALIGNMENT)
   list(APPEND defines "-DFIBER_ASM_CHECK_ALIGNMENT=1")
 endif()
 
-set(asm_sources)
+set(asm_sources False)
 if(CMU_OS_POSIX AND CMU_ARCH_X86 AND FIBER_BITS_64)
   set(asm_sources src/fiber_asm_amd64_sysv.S)
 elseif(CMU_OS_POSIX AND CMU_ARCH_X86 AND FIBER_BITS_32)
@@ -86,8 +85,8 @@ elseif(CMU_OS_WINDOWS AND CMU_ARCH_X86 AND FIBER_BITS_32)
     )
   else()
     message(
-      ERROR
-      "compiling fiber under X86 WIN32 only supported when using MSVC toolchain"
+      FATAL_ERROR
+      "compiling fiber under X86 WIN32 only supported when using the MSVC toolchain"
     )
   endif()
 elseif(CMU_OS_POSIX AND CMU_ARCH_RISCV AND FIBER_BITS_64)
@@ -102,7 +101,7 @@ if(CMU_COMP_MSVC)
 endif()
 
 if(NOT asm_sources)
-  message(ERROR "fiber: this platform is not supported")
+  message(FATAL_ERROR "fiber: this platform is not supported ARCH=${CMU_ARCH} BITS=${CMU_BITS} OS=${CMAKE_SYSTEM_NAME}")
 endif()
 
 if(FIBER_M32)
@@ -112,8 +111,11 @@ endif()
 
 enable_language(${asm_lang})
 if(NOT CMAKE_${asm_lang}_COMPILER_LOADED)
-  set(have_asm True)
-  message(ERROR "no compatible assembler found")
+  message(FATAL_ERROR "no compatible assembler found")
+endif()
+
+if(NOT DEFINED FIBER_SHARED)
+  set(FIBER_SHARED "${BUILD_SHARED_LIBS}")
 endif()
 
 if(NOT TARGET header-utils::header-utils)
@@ -129,25 +131,22 @@ else()
   set(_fiber_lib_mode STATIC)
 endif()
 
+message(STATUS "asm_sources=${asm_sources}")
 add_library(fiber ${_fiber_lib_mode} ${asm_sources} src/fiber.c)
 target_include_directories(fiber PUBLIC include)
 target_include_directories(fiber PRIVATE src)
 target_link_libraries(fiber PUBLIC header-utils::header-utils)
 target_compile_definitions(fiber PRIVATE ${defines})
+
 if(FIBER_LTO)
   set_property(TARGET fiber PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
-add_library(fiber::fiber ALIAS fiber)
 target_compile_options(fiber PUBLIC ${cflags})
-target_compile_options(fiber PRIVATE ${priv_cflags})
+target_compile_options(fiber PRIVATE ${priv_cflags} ${CMU_FLAGS_W4})
 
 if(ldflags)
-  if(COMMAND target_link_options)
-    target_link_options(fiber PUBLIC ${ldflags})
-  else()
-    target_link_libraries(fiber PUBLIC ${ldflags})
-  endif()
+  cmu_target_link_options(fiber PUBLIC ${ldflags})
 endif()
 
 if(FIBER_SHARED)

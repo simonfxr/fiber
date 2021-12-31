@@ -27,7 +27,7 @@ test_main_begin(int *argc, char ***argv)
         out = stdout;
         return;
     }
-    out = fopen((*argv)[1], "w");
+    out = fopen((*argv)[1], "wb");
     require(out != NULL);
 }
 

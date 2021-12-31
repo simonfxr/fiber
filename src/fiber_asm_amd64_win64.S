@@ -18,21 +18,18 @@
  .endm
 
 FUNC(fiber_asm_switch):
-  mov [rcx], rsp
-  mov rax, [rdx]
-  mov r8, [rax]
-  lea rsp, [rax + 8]
+  pop rax
 
-  .set i, 1
-  .irp r, rbx, rbp, rdi, rsi, r12, r13, r14, r15
-     mov [rdi + 8 * i], \r
-     mov \r, [rsi + 8 * i]
+  .set i, 0
+  .irp r, rsp, rax, rbx, rbp, rdi, rsi, r12, r13, r14, r15
+     mov [rcx + 8 * i], \r
+     mov \r, [rdx + 8 * i]
      .set i, i+1
   .endr
 
-  lea rcx, [rcx + 10 * 8]
+  lea rcx, [rcx + 11 * 8]
   and rcx, -16
-  lea rdx, [rdx + 10 * 8]
+  lea rdx, [rdx + 11 * 8]
   and rdx, -16
 
   .set i, 0
@@ -42,28 +39,30 @@ FUNC(fiber_asm_switch):
     .set i, i+1
   .endr
 
-  jmp r8
+  jmp rax
 
 FUNC(fiber_asm_invoke):
-  mov rcx, [rsp+8]
-  mov rdx, [rsp+16]
-  sub rsp, 16
+  mov rcx, [rsp]
+  mov rdx, [rsp+8]
+  sub rsp, 32
   check_stack_alignment
   call rdx
-  mov rsp, [rsp + 40]
-  ret
+  add rsp, 48
+  mov rax, [rsp + 8]
+  mov rsp, [rsp]
+  jmp rax
 
 FUNC(fiber_asm_exec_on_stack):
   push rbp
   mov rbp, rsp
-  lea rsp, [r8 - 40]
+  lea rsp, [r8 - 32]
   check_stack_alignment
   call rdx
   mov rsp, rbp
-  mov rbp, [rbp]
+  pop rbp
   ret
 
 #ifdef FIBER_ASM_CHECK_ALIGNMENT
 align_check_failed:
-  jmp ENTRY(fiber_align_check_failed)
+  jmp fiber_align_check_failed
 #endif

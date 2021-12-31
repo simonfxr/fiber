@@ -31,7 +31,7 @@
 #    define VC_EXTRALEAN 1
 #    define NOMINMAX 1
 #    define NOGDI 1
-#    include <Windows.h>
+#    include <windows.h>
 #    define ALIGNED_ALLOC(algn, sz) _aligned_malloc((sz), (algn))
 #    define ALIGNED_FREE _aligned_free
 #    define GETPAGESIZE win32_get_pagesize
@@ -63,7 +63,7 @@ static const size_t WORD_SIZE = sizeof(void *);
 static inline char *
 stack_align_n(char *sp, size_t n)
 {
-    return (char *) ((uintptr_t) sp & ~(uintptr_t)(n - 1));
+    return (char *) ((uintptr_t) sp & ~(uintptr_t) (n - 1));
 }
 
 HU_MAYBE_UNUSED
@@ -96,7 +96,7 @@ fiber_init_(Fiber *fbr, FiberCleanupFunc cleanup, void *arg)
 {
     memset(&fbr->regs, 0, sizeof fbr->regs);
     uintptr_t sp =
-      (uintptr_t)((char *) fbr->stack + fbr->stack_size - WORD_SIZE);
+      (uintptr_t) ((char *) fbr->stack + fbr->stack_size - WORD_SIZE);
     sp &= ~(STACK_ALIGNMENT - 1);
     fbr->regs.sp = (void *) sp;
     FiberGuardArgs *args;
@@ -374,6 +374,12 @@ fiber_exec_on(Fiber *active, Fiber *temp, FiberFunc f, void *args)
         active->state |= FIBER_FS_EXECUTING;
         temp->state &= ~FIBER_FS_EXECUTING;
     }
+}
+
+size_t
+fiber_stack_alignment()
+{
+    return STACK_ALIGNMENT;
 }
 
 static void
