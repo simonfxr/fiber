@@ -1,6 +1,4 @@
-#ifndef FIBER_AMALGAMATED
-#    include "fiber/fiber.h"
-#endif
+#include "fiber/fiber.h"
 
 #include "test_pre.h"
 

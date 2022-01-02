@@ -1,8 +1,6 @@
 #define __STDC_FORMAT_MACROS 1
 
-#ifndef FIBER_AMALGAMATED
-#    include <fiber/fiber.h>
-#endif
+#include <fiber/fiber.h>
 
 #include "test_pre.h"
 

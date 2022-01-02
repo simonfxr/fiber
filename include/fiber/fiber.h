@@ -1,11 +1,9 @@
 #ifndef FIBER_H
 #define FIBER_H
 
-#ifndef FIBER_AMALGAMATED
-#    include <hu/annotations.h>
-#    include <hu/lang.h>
-#    include <hu/objfmt.h>
-#endif
+#include <hu/annotations.h>
+#include <hu/lang.h>
+#include <hu/objfmt.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -26,9 +24,7 @@
 extern "C" {
 #endif
 
-#ifndef FIBER_AMALGAMATED
-#    include <fiber/fiber_mach.h>
-#endif
+#include <fiber/fiber_mach.h>
 
 typedef uint16_t FiberState;
 typedef uint16_t FiberFlags;
@@ -194,7 +190,7 @@ fiber_exec_on(HU_IN_NONNULL Fiber *active,
  */
 FIBER_API
 size_t
-fiber_stack_alignment();
+fiber_stack_alignment(void);
 
 HU_WARN_UNUSED
 static inline bool

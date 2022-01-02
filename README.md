@@ -13,7 +13,7 @@
 
 ## Supported platforms
 
-- ELF Targets, 32 or 64-bit, running on x86 or ARM (e.g. Linux, BSD's)
+- ELF Targets, 32 or 64-bit, running on x86, ARM (e.g. Linux, BSD's), RISC-V 32/64 and PPC64
 - Windows 32 or 64-bit x86
 - MacOS 64bit x86 and Apple Silicon (special thanks to [@rsmmr](https://github.com/rsmmr) for Apple Silicon support!)
 

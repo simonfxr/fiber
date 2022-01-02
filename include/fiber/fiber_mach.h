@@ -1,14 +1,12 @@
 #ifndef FIBER_MACH_H
 #define FIBER_MACH_H
 
-#ifndef FIBER_AMALGAMATED
-#    include <hu/arch.h>
-#    include <hu/bits.h>
-#    include <hu/endian.h>
-#    include <hu/lang.h>
-#    include <hu/objfmt.h>
-#    include <hu/os.h>
-#endif
+#include <hu/arch.h>
+#include <hu/bits.h>
+#include <hu/endian.h>
+#include <hu/lang.h>
+#include <hu/objfmt.h>
+#include <hu/os.h>
 
 #if HU_ARCH_X86_P && HU_BITS_32_P && (HU_OS_POSIX_P || HU_OS_WINDOWS_P)
 #    if HU_OS_WINDOWS_P
@@ -94,8 +92,8 @@
         void *r[10]; /* r19 - r28 */                                           \
         double d[8]; /* d8 - d15 */
 
-#elif HU_ARCH_RISCV_P && HU_BITS_64_P && HU_OS_POSIX_P
-#    define FIBER_TARGET_RISCV64_ELF 1
+#elif HU_ARCH_RISCV_P && HU_OS_POSIX_P
+#    define FIBER_TARGET_RISCV_ELF 1
 #    define FIBER_DEFAULT_STACK_ALIGNMENT 16
 #    ifndef __riscv_float_abi_double
 #        error "this RISCV abi is not supported use -mabi=lp64d"
@@ -136,6 +134,10 @@ typedef struct FiberRegs
     FIBER_ARCH_REGS;
 } FiberRegs;
 HU_END_EXTERN_C
+#endif
+
+#ifndef FIBER_STACK_ALIGNMENT
+#    define FIBER_STACK_ALIGNMENT FIBER_DEFAULT_STACK_ALIGNMENT
 #endif
 
 #endif

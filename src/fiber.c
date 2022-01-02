@@ -1,20 +1,16 @@
-#ifndef FIBER_AMALGAMATED
-#    include <fiber/fiber.h>
+#include <fiber/fiber.h>
 
-#    include "fiber_asm.h"
-
-#    include <hu/annotations.h>
-#endif
+#include "fiber_asm.h"
 
 #include <assert.h>
+#include <hu/annotations.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #if HU_OS_POSIX_P
 #    include <sys/mman.h>
-#    include <unistd.h> // getpagesize()
-#    define GETPAGESIZE getpagesize
+#    include <unistd.h>
 #    if HU_C_11_P
 #        define ALIGNED_ALLOC aligned_alloc
 #    elif HU_OS_BSD_P || defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
@@ -34,16 +30,11 @@
 #    include <windows.h>
 #    define ALIGNED_ALLOC(algn, sz) _aligned_malloc((sz), (algn))
 #    define ALIGNED_FREE _aligned_free
-#    define GETPAGESIZE win32_get_pagesize
 #else
 #    error "Platform not supported"
 #endif
 
-#ifndef FIBER_STACK_ALIGNMENT
-static const size_t STACK_ALIGNMENT = FIBER_DEFAULT_STACK_ALIGNMENT;
-#else
 static const size_t STACK_ALIGNMENT = FIBER_STACK_ALIGNMENT;
-#endif
 
 static const size_t ARG_ALIGNMENT = 8;
 static const size_t WORD_SIZE = sizeof(void *);
@@ -164,7 +155,7 @@ get_page_size()
         return pgsz;
 
 #if HU_OS_POSIX_P
-    pgsz = (size_t) getpagesize();
+    pgsz = (size_t) sysconf(_SC_PAGESIZE);
 #elif HU_OS_WINDOWS_P
     SYSTEM_INFO sysnfo;
     GetSystemInfo(&sysnfo);
