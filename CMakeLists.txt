@@ -7,6 +7,9 @@ endif()
 
 if(FIBER_STANDALONE_PROJECT)
   project(fiber LANGUAGES C)
+  set(CMAKE_C_STANDARD 99)
+  set(CMAKE_C_EXTENSIONS False)
+
   # Required under windows when building a dll and running tests
   set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 endif()
@@ -42,10 +45,6 @@ set(defines)
 set(ldflags)
 set(asm_lang "ASM")
 
-if(CMU_OS_FREEBSD AND FIBER_BITS_32)
-  list(APPEND defines -DFIBER_STACK_ALIGNMENT=4)
-endif()
-
 if(CMU_COMP_GNUC)
   list(APPEND priv_cflags -Wall -Wextra)
   if(FIBER_STANDALONE_PROJECT)
@@ -77,17 +76,9 @@ elseif(CMU_OS_WINDOWS AND CMU_ARCH_X86 AND FIBER_BITS_32)
   if(CMU_COMP_MSVC)
     set(asm_lang "ASM_MASM")
     set(asm_sources src/fiber_asm_x86_win32.asm)
-    set_source_files_properties(
-      ${asm_sources}
-      PROPERTIES
-      COMPILE_OPTIONS
-      "/safeseh"
-    )
+    set_source_files_properties(${asm_sources} PROPERTIES COMPILE_OPTIONS "/safeseh")
   else()
-    message(
-      FATAL_ERROR
-      "compiling fiber under X86 WIN32 only supported when using the MSVC toolchain"
-    )
+    set(asm_sources src/fiber_asm_x86_cdecl.S)
   endif()
 elseif(CMU_OS_POSIX AND CMU_ARCH_RISCV AND FIBER_BITS_64)
   set(asm_sources src/fiber_asm_riscv64_elf.S)
@@ -131,7 +122,6 @@ else()
   set(_fiber_lib_mode STATIC)
 endif()
 
-message(STATUS "asm_sources=${asm_sources}")
 add_library(fiber ${_fiber_lib_mode} ${asm_sources} src/fiber.c)
 target_include_directories(fiber PUBLIC include)
 target_include_directories(fiber PRIVATE src)

@@ -4,85 +4,84 @@ fiber_align_check_failed PROTO C
 
 
 fiber_asm_switch PROC
-  mov rax, [rdx]
-  mov r8, [rax]
+  pop rax
 
-  mov [rcx + 0], rsp
-  mov [rcx + 8], rbx
-  mov [rcx + 16], rbp
-  mov [rcx + 24], rdi
-  mov [rcx + 32], rsi
-  mov [rcx + 40], r12
-  mov [rcx + 48], r13
-  mov [rcx + 56], r14
-  mov [rcx + 64], r15
-  lea rcx, [rcx + 72 + 8]
+  mov [rcx], rsp
+  mov rsp, [rdx]
+  mov [rcx+0x8], rax
+  mov rax, [rdx+0x8]
+  mov [rcx+0x10], rbx
+  mov rbx, [rdx+0x10]
+  mov [rcx+0x18], rbp
+  mov rbp, [rdx+0x18]
+  mov [rcx+0x20], rdi
+  mov rdi, [rdx+0x20]
+  mov [rcx+0x28], rsi
+  mov rsi, [rdx+0x28]
+  mov [rcx+0x30], r12
+  mov r12, [rdx+0x30]
+  mov [rcx+0x38], r13
+  mov r13, [rdx+0x38]
+  mov [rcx+0x40], r14
+  mov r14, [rdx+0x40]
+  mov [rcx+0x48], r15
+  mov r15, [rdx+0x48]
+
+  lea rcx, [rcx+0x58]
   and rcx, -16
-  movaps [rcx + 16 * 0], xmm6
-  movaps [rcx + 16 * 1], xmm7
-  movaps [rcx + 16 * 2], xmm8
-  movaps [rcx + 16 * 3], xmm9
-  movaps [rcx + 16 * 4], xmm10
-  movaps [rcx + 16 * 5], xmm11
-  movaps [rcx + 16 * 6], xmm12
-  movaps [rcx + 16 * 7], xmm13
-  movaps [rcx + 16 * 8], xmm14
-  movaps [rcx + 16 * 9], xmm15
-
-  lea rsp, [rax + 8]
-  mov rbx, [rdx + 8]
-  mov rbp, [rdx + 16]
-  mov rdi, [rdx + 24]
-  mov rsi, [rdx + 32]
-  mov r12, [rdx + 40]
-  mov r13, [rdx + 48]
-  mov r14, [rdx + 56]
-  mov r15, [rdx + 64]
-  lea rdx, [rdx + 72 + 8]
+  lea rdx, [rdx+0x58]
   and rdx, -16
-  movaps xmm6, [rdx + 16 * 0]
-  movaps xmm7, [rdx + 16 * 1]
-  movaps xmm8, [rdx + 16 * 2]
-  movaps xmm9, [rdx + 16 * 3]
-  movaps xmm10, [rdx + 16 * 4]
-  movaps xmm11, [rdx + 16 * 5]
-  movaps xmm12, [rdx + 16 * 6]
-  movaps xmm13, [rdx + 16 * 7]
-  movaps xmm14, [rdx + 16 * 8]
-  movaps xmm15, [rdx + 16 * 9]
 
-  jmp r8
+  movaps [rcx], xmm6
+  movaps xmm6, [rdx]
+  movaps [rcx+0x10], xmm7
+  movaps xmm7, [rdx+0x10]
+  movaps [rcx+0x20], xmm8
+  movaps xmm8, [rdx+0x20]
+  movaps [rcx+0x30], xmm9
+  movaps xmm9, [rdx+0x30]
+  movaps [rcx+0x40], xmm10
+  movaps xmm10, [rdx+0x40]
+  movaps [rcx+0x50], xmm11
+  movaps xmm11, [rdx+0x50]
+  movaps [rcx+0x60], xmm12
+  movaps xmm12, [rdx+0x60]
+  movaps [rcx+0x70], xmm13
+  movaps xmm13, [rdx+0x70]
+  movaps [rcx+0x80], xmm14
+  movaps xmm14, [rdx+0x80]
+  movaps [rcx+0x90], xmm15
+  movaps xmm15, [rdx+0x90]
+
+  jmp    rax
 fiber_asm_switch ENDP
 
 
 fiber_asm_invoke PROC
-  add rsp, 8
-  pop rdx
   mov rcx, [rsp]
+  mov rdx, [rsp+8]
   sub rsp, 32
-
 IFDEF FIBER_ASM_CHECK_ALIGNMENT
   test esp, 0Fh
   jnz fiber_align_check_failed
 ENDIF
   call rdx
-  mov rsp, [rsp + 40]
-  ret
+  add rsp, 48
+  mov rax, [rsp+8]
+  mov rsp, [rsp]
+  jmp rax
 fiber_asm_invoke ENDP
 
 
 fiber_asm_exec_on_stack PROC
   push rbp
   mov rbp, rsp
-  lea rsp, [rcx - 40]
-
+  lea rsp, [r8 - 32]
 IFDEF FIBER_ASM_CHECK_ALIGNMENT
   test esp, 0Fh
   jnz fiber_align_check_failed
 ENDIF
-  mov rcx, r8
   call rdx
-  mov rax, rbp
   mov rsp, rbp
   pop rbp
   ret

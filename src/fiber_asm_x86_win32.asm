@@ -6,25 +6,30 @@ PUBLIC fiber_asm_invoke
 PUBLIC fiber_asm_exec_on_stack
 
 fiber_asm_switch PROC
-  mov edx, [esp+4]
-  mov ecx, [esp+8]
-  mov [edx+0], esp
-  mov esp, [ecx+0]
-  mov [edx+4], ebp
-  mov ebp, [ecx+4]
-  mov [edx+8], ebx
-  mov ebx, [ecx+8]
-  mov [edx+12], edi
-  mov edi, [ecx+12]
-  mov [edx+16], esi
-  mov esi, [ecx+16]
-  ret
+  pop eax
+  mov edx, [esp]
+  mov ecx, [esp+4]
+  mov [edx], esp
+  mov esp, [ecx]
+  mov [edx+4], eax
+  mov eax, [ecx+4]
+  mov [edx+8], ebp
+  mov ebp, [ecx+8]
+  mov [edx+12], ebx
+  mov ebx, [ecx+12]
+  mov [edx+16], edi
+  mov edi, [ecx+16]
+  mov [edx+20], esi
+  mov esi, [ecx+20]
+  jmp eax
 fiber_asm_switch ENDP
 
 fiber_asm_invoke PROC
-  call [esp+4]
+  mov eax, [esp+4]
+  call eax
+  mov eax, [esp+12]
   mov esp, [esp+8]
-  ret
+  jmp eax
 fiber_asm_invoke ENDP
 
 fiber_asm_exec_on_stack PROC
@@ -32,7 +37,7 @@ fiber_asm_exec_on_stack PROC
   mov edx, [eax+4]
   mov ecx, [eax+8]
   mov esp, [eax+12]
-  sub esp, 12
+  sub esp, 16
   mov [esp+4], eax
   mov [esp], edx
   call ecx
