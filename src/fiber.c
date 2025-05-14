@@ -8,10 +8,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __APPLE__
+#include <AvailabilityMacros.h>
+#endif
+
 #if HU_OS_POSIX_P
 #    include <sys/mman.h>
 #    include <unistd.h>
-#    if HU_C_11_P
+#    if defined(__APPLE__) && MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+#        define USE_POSIX_MEMALIGN 1 /* No aligned_alloc on macOS < 10.13 */
+#    elif HU_C_11_P
 #        define ALIGNED_ALLOC aligned_alloc
 #    elif HU_OS_BSD_P || defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
 #        define USE_POSIX_MEMALIGN 1
