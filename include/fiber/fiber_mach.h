@@ -119,6 +119,17 @@
         double *f[18];        /* f14 - f31 */                                  \
         double *v[12 * 2 + 1] /* v20 - v31, adjusted to be 16 byte aligned */
 
+#elif HU_ARCH_PPC_P && HU_BITS_32_P && HU_OBJFMT_MACHO_P
+#    define FIBER_TARGET_PPC_MACH 1
+#    define FIBER_DEFAULT_STACK_ALIGNMENT 16
+#    define FIBER_ARCH_REGS                                                    \
+        uint32_t cr;                                                           \
+        uint32_t vrsave;                                                       \
+        void *lr;             /* r0 */                                         \
+        void *sp;             /* r1 */                                         \
+        void *r[19];          /* r13 - r31 */                                  \
+        double *f[18]         /* f14 - f31 */
+
 #else
 #    error "fiber: system/architecture target not supported"
 #endif
