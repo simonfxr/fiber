@@ -84,6 +84,8 @@ elseif(CMU_OS_POSIX AND CMU_ARCH_RISCV)
   set(asm_sources src/fiber_asm_riscv_elf.S)
 elseif(CMU_OS_POSIX AND CMU_ARCH_PPC AND FIBER_BITS_64 AND CMU_LITTLE_ENDIAN)
   set(asm_sources src/fiber_asm_ppc64le_elf2.S)
+elseif(CMU_OS_POSIX AND CMU_ARCH_PPC AND FIBER_BITS_32)
+  set(asm_sources src/fiber_asm_ppc_mach.S)
 endif()
 
 if(CMU_COMP_MSVC)
