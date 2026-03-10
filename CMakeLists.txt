@@ -148,6 +148,21 @@ if(FIBER_OBJECT)
   set_target_properties(fiber PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
 
+# Set C standard on the target so it applies in both standalone and subdirectory
+# mode. The standalone code path above sets CMAKE_C_STANDARD, but that does not
+# propagate when fiber is consumed as a subdirectory.
+set_property(TARGET fiber PROPERTY C_STANDARD 99)
+set_property(TARGET fiber PROPERTY C_STANDARD_REQUIRED ON)
+set_property(TARGET fiber PROPERTY C_EXTENSIONS OFF)
+
+if(CMU_COMP_MSVC AND NOT CMU_COMP_GNUC)
+  # Pure MSVC (not clang-cl) needs /std:c11 to define __STDC_VERSION__, and
+  # never defines __STDC__ without /Za. Both are required by cxx-header-utils
+  # (hu/lang.h) for C language detection.
+  set_property(TARGET fiber PROPERTY C_STANDARD 11)
+  target_compile_definitions(fiber PRIVATE __STDC__=1)
+endif()
+
 if(FIBER_STANDALONE_PROJECT)
   enable_testing()
   add_subdirectory(test)
