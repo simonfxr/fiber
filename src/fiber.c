@@ -13,7 +13,7 @@
 #    include <unistd.h>
 #    if HU_C_11_P
 #        define ALIGNED_ALLOC aligned_alloc
-#    elif HU_OS_BSD_P || defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
+#    elif HU_OS_BSD_P || HU_OS_APPLE_P || defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
 #        define USE_POSIX_MEMALIGN 1
 #    else
 #        include <malloc.h>

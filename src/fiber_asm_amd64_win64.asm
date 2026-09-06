@@ -8,50 +8,50 @@ fiber_asm_switch PROC
 
   mov [rcx], rsp
   mov rsp, [rdx]
-  mov [rcx+0x8], rax
-  mov rax, [rdx+0x8]
-  mov [rcx+0x10], rbx
-  mov rbx, [rdx+0x10]
-  mov [rcx+0x18], rbp
-  mov rbp, [rdx+0x18]
-  mov [rcx+0x20], rdi
-  mov rdi, [rdx+0x20]
-  mov [rcx+0x28], rsi
-  mov rsi, [rdx+0x28]
-  mov [rcx+0x30], r12
-  mov r12, [rdx+0x30]
-  mov [rcx+0x38], r13
-  mov r13, [rdx+0x38]
-  mov [rcx+0x40], r14
-  mov r14, [rdx+0x40]
-  mov [rcx+0x48], r15
-  mov r15, [rdx+0x48]
+  mov [rcx+8h], rax
+  mov rax, [rdx+8h]
+  mov [rcx+10h], rbx
+  mov rbx, [rdx+10h]
+  mov [rcx+18h], rbp
+  mov rbp, [rdx+18h]
+  mov [rcx+20h], rdi
+  mov rdi, [rdx+20h]
+  mov [rcx+28h], rsi
+  mov rsi, [rdx+28h]
+  mov [rcx+30h], r12
+  mov r12, [rdx+30h]
+  mov [rcx+38h], r13
+  mov r13, [rdx+38h]
+  mov [rcx+40h], r14
+  mov r14, [rdx+40h]
+  mov [rcx+48h], r15
+  mov r15, [rdx+48h]
 
-  lea rcx, [rcx+0x58]
+  lea rcx, [rcx+58h]
   and rcx, -16
-  lea rdx, [rdx+0x58]
+  lea rdx, [rdx+58h]
   and rdx, -16
 
   movaps [rcx], xmm6
   movaps xmm6, [rdx]
-  movaps [rcx+0x10], xmm7
-  movaps xmm7, [rdx+0x10]
-  movaps [rcx+0x20], xmm8
-  movaps xmm8, [rdx+0x20]
-  movaps [rcx+0x30], xmm9
-  movaps xmm9, [rdx+0x30]
-  movaps [rcx+0x40], xmm10
-  movaps xmm10, [rdx+0x40]
-  movaps [rcx+0x50], xmm11
-  movaps xmm11, [rdx+0x50]
-  movaps [rcx+0x60], xmm12
-  movaps xmm12, [rdx+0x60]
-  movaps [rcx+0x70], xmm13
-  movaps xmm13, [rdx+0x70]
-  movaps [rcx+0x80], xmm14
-  movaps xmm14, [rdx+0x80]
-  movaps [rcx+0x90], xmm15
-  movaps xmm15, [rdx+0x90]
+  movaps [rcx+10h], xmm7
+  movaps xmm7, [rdx+10h]
+  movaps [rcx+20h], xmm8
+  movaps xmm8, [rdx+20h]
+  movaps [rcx+30h], xmm9
+  movaps xmm9, [rdx+30h]
+  movaps [rcx+40h], xmm10
+  movaps xmm10, [rdx+40h]
+  movaps [rcx+50h], xmm11
+  movaps xmm11, [rdx+50h]
+  movaps [rcx+60h], xmm12
+  movaps xmm12, [rdx+60h]
+  movaps [rcx+70h], xmm13
+  movaps xmm13, [rdx+70h]
+  movaps [rcx+80h], xmm14
+  movaps xmm14, [rdx+80h]
+  movaps [rcx+90h], xmm15
+  movaps xmm15, [rdx+90h]
 
   jmp    rax
 fiber_asm_switch ENDP
