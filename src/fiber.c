@@ -149,8 +149,8 @@ HU_CONST_FN
 static size_t
 get_page_size()
 {
-    static size_t PAGE_SIZE = 0;
-    size_t pgsz = PAGE_SIZE;
+    static size_t cached_page_size = 0;
+    size_t pgsz = cached_page_size;
     if (hu_likely(pgsz != 0))
         return pgsz;
 
@@ -161,7 +161,7 @@ get_page_size()
     GetSystemInfo(&sysnfo);
     pgsz = (size_t) sysnfo.dwPageSize;
 #endif
-    PAGE_SIZE = pgsz;
+    cached_page_size = pgsz;
     return pgsz;
 }
 
